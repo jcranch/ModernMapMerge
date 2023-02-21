@@ -1,0 +1,60 @@
+name:               modernmapmerge
+version:            0.1.0.0
+license:            BSD3
+author:             "James Cranch"
+maintainer:         "j.d.cranch@sheffield.ac.uk"
+copyright:          "2022 James Cranch (all), 2020 Fumiaki Kinoshita (witherable)"
+synopsis:           Proof-of-concept for improved merges in Haskell
+category:           Data structures
+
+dependencies:
+  - base                        >= 4.15         && < 4.17
+  - containers                  >= 0.6.4.1      && < 0.6.6
+  - indexed-traversable         >= 0.1.2        && < 0.1.3
+
+ghc-options:
+  - -Wall
+  - -Wcompat
+  - -Wincomplete-record-updates
+  - -Wincomplete-uni-patterns
+  - -Wredundant-constraints
+  - -Werror
+  - -Wwarn=missing-home-modules
+  - -O2
+
+library:
+  source-dirs:      src-modernmapmerge
+  dependencies:
+    - witherable
+
+internal-libraries:
+
+  witherable:
+    source-dirs:    src-witherable
+
+  listmap:
+    source-dirs:    src-listmap
+    dependencies:
+      - modernmapmerge
+      - witherable
+
+  maplike:
+    source-dirs:    src-maplike
+    dependencies:
+      - modernmapmerge
+      - witherable
+
+  extra:
+    source-dirs:    src-extra
+    dependencies:
+      - witherable
+      - modernmapmerge
+      - array                         >= 0.5.4.0  && < 0.5.5
+      - data-default                  >= 0.7.1.1  && < 0.7.2
+      - hashable                      >= 1.3.5    && < 1.4.2
+      - indexed-traversable-instances >= 0.1.1    && < 0.1.2
+      - transformers                  >= 0.5.6.2  && < 0.5.7
+      - unordered-containers          >= 0.2.16   && < 0.2.20
+      - vector                        >= 0.12.3.1 && < 0.12.4
+    ghc-options:
+      - -fno-warn-orphans
