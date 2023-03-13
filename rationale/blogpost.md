@@ -512,3 +512,10 @@ as a `HashMap` (which could be empty, a leaf/collision, or a partial
 or full node), provide withering and merging functionality for
 bitmap/array pairs, and have the merging for `HashMap` be mutually
 recursive with that for bitmap/array pairs.
+
+
+
+## Acknowledgements
+
+Thanks are due to [Tom Ellis](https://github.com/tomjaguarpaw) for
+helping me develop these ideas.
