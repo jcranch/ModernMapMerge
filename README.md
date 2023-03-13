@@ -1,7 +1,11 @@
 # Modern Map Merge
 
 This is an attempt at providing more generic, safer merge
-functionality for maplike data structures.
+functionality for maplike data structures. It has been proposed to the
+maintainers of the
+  [containers](https://hackage.haskell.org/package/containers)
+library as an
+  [issue](https://github.com/haskell/containers/issues/937).
 
 There is a
   [blogpost](rationale/blogpost.md)
