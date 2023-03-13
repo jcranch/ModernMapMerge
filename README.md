@@ -15,27 +15,29 @@ practical account of what this repository contains.
 This is a slight rewrite of Kinoshita's
   [witherable](https://hackage.haskell.org/package/witherable)
 package, written to have a few dependencies as possible (and hence to
-make it suitable as a dependency for collections, if desired).
+make it suitable as a dependency for
+  [containers](https://hackage.haskell.org/package/containers),
+if desired).
 
 Contents:
 
-* src-witherable/notes.md
+* [notes.md](src-witherable/notes.md)
 
     A more complete account of changes made to Kinoshita's package
 
-* src-witherable/Data/Filterable.hs
+* [Data/Filterable.hs](src-witherable/Data/Filterable.hs)
 
     Data structures which can have elements removed from them
 
-* src-witherable/Data/Filterable/WithIndex.hs
+* [Data/Filterable/WithIndex.hs](src-witherable/Data/Filterable/WithIndex.hs)
 
     As above, but indexed
 
-* src-witherable/Data/Witherable.hs
+* [Data/Witherable.hs](src-witherable/Data/Witherable.hs)
 
-    Data structures which can have elements removed, in a functor
+    Data structures which can have elements removed, but in a functor
 
-* src-witherable/Data/Witherable/WithIndex.hs
+* [Data/Witherable/WithIndex.hs](src-witherable/Data/Witherable/WithIndex.hs)
 
     As above, but indexed
 
@@ -47,23 +49,24 @@ safer interface for merge tactics.
 
 Contents:
 
-* src-modernmapmerge/Data/MergeTactics.hs
+* [Data/MergeTactics.hs](src-modernmapmerge/Data/MergeTactics.hs)
 
     A collection of merge tactics, replacing those for Map and IntMap
 
-* src-modernmapmerge/Data/MergeTactics/Reindex.hs
+* [Data/MergeTactics/Reindex.hs](src-modernmapmerge/Data/MergeTactics/Reindex.hs)
 
     Some code for reindexing merge tactics, probably not of much use to the casual user
 
-* src-modernmapmerge/Data/IMaybe.hs
+* [Data/IMaybe.hs](src-modernmapmerge/Data/IMaybe.hs)
 
-    An indexed Maybe. Possibly instructive to the user, but also important in applications.
+    An indexed Maybe. Possibly instructive to the user as a simple
+    example but also important in applications.
 
-* src-modernmapmerge/Data/IntMap/Merge.hs
+* [Data/IntMap/Merge.hs](src-modernmapmerge/Data/IntMap/Merge.hs)
 
     Merge functionality for IntMap
 
-* src-modernmapmerge/Data/Map/Merge.hs
+* [Data/Map/Merge.hs](src-modernmapmerge/Data/Map/Merge.hs)
 
     Merge functionality for Map
 
@@ -81,7 +84,7 @@ structures.
 
 Contents:
 
-* src-listmap/Data/ListMap.hs
+* [Data/ListMap.hs](src-listmap/Data/ListMap.hs)
 
     List-backed maps.
 
@@ -96,11 +99,11 @@ nodes can in turn be any Maplike datatype.
 
 Contents:
 
-* src-maplike/Data/Maplike.hs
+* [Data/Maplike.hs](src-maplike/Data/Maplike.hs)
 
     The Maplike class
 
-* src-maplike/Data/PrefixMap.hs
+* [Data/PrefixMap.hs](src-maplike/Data/PrefixMap.hs)
 
     Generic prefix trees
 
@@ -116,30 +119,33 @@ into the packages on which it depends.
 
 Contents:
 
-* src-extra/Control/Monad/State/Extra.hs
+* [Control/Monad/State/Extra.hs](src-extra/Control/Monad/State/Extra.hs)
 
-    Monad functionality, which could possibly be moved into (which could conceivably be moved into [https://hackage.haskell.org/package/transformers](transformers)
+    Monad functionality, which could possibly be moved into (which could conceivably be moved into
+      [transformers](https://hackage.haskell.org/package/transformers)
 
-* src-extra/Control/Monad/Transformers/Extra.hs
+* [Control/Monad/Transformers/Extra.hs](src-extra/Control/Monad/Transformers/Extra.hs)
 
     More of the same.
 
-* src-extra/Data/Functor/Extra.hs
+* [Data/Functor/Extra.hs](src-extra/Data/Functor/Extra.hs)
 
     Some instances for functor compositions
 
-* src-extra/Data/Functor/ExtraUndecidable.hs
+* [Data/Functor/ExtraUndecidable.hs](src-extra/Data/Functor/ExtraUndecidable.hs)
 
     More of the above
-    
-* src-extra/Data/HashMap/Extra.hs
 
-    Instances for HashMap and HashSet (which could be moved into [https://hackage.haskell.org/package/unordered-containers](unordered-containers))
+* [Data/HashMap/Extra.hs](src-extra/Data/HashMap/Extra.hs)
 
-* src-extra/Data/Hashable/Extra.hs
+    Instances for HashMap and HashSet (which could be moved into
+      [unordered-containers](https://hackage.haskell.org/package/unordered-containers))
+
+* [Data/Hashable/Extra.hs](src-extra/Data/Hashable/Extra.hs)
 
     Some assorted functionality associated to the above
 
-* src-extra/Data/Vector/Extra.hs
+* [Data/Vector/Extra.hs](src-extra/Data/Vector/Extra.hs)
 
-    Instances for Vector (which could be moved into [https://hackage.haskell.org/package/vector](vector))
+    Instances for Vector (which could be moved into
+      [vector](https://hackage.haskell.org/package/vector))

@@ -1,15 +1,17 @@
 Changes from the original
 =========================
 
-This is a trimmed-down version of Fumiaki Kinoshita's Witherable
+This is a trimmed-down version of Fumiaki Kinoshita's
+[Witherable](https://hackage.haskell.org/package/witherable)
 library. What's been changed?
 
 * Fewer dependencies
 
   Any functions or instances dependent upon packages other than
-  (base)[https://hackage.haskell.org/package/base-4.16.0.0/docs/index.html],
-  (containers)[https://hackage.haskell.org/package/containers-0.6.5.1], and
-  (indexed-traversable)[https://hackage.haskell.org/package/indexed-traversable]
+  [base](https://hackage.haskell.org/package/base-4.16.0.0/docs/index.html),
+  [containers](https://hackage.haskell.org/package/containers-0.6.5.1),
+  and
+  [indexed-traversable](https://hackage.haskell.org/package/indexed-traversable)
   have been removed to provide a version with minimal dependencies.
 
 * Flush, saviour of the universe
@@ -22,17 +24,20 @@ library. What's been changed?
 * Instances for Kleisli
 
   I added an instance of `FunctorWithIndex` to `Kleisli m a` (from
-  `Control.Arrow` in base) to the indexed-traversable
+  [Control.Arrow](https://hackage.haskell.org/package/base-4.18.0.0/docs/Control-Arrow.html)
+  in base) to the
+  [indexed-traversable](https://hackage.haskell.org/package/indexed-traversable)
   package. Correspondingly, there are instances of `Filterable` and
   `FilterableWithIndex` in this package.
 
 * Mild restructuring
 
   The format has been altered to coincide more closely with the base
-  libraries and indexed-traversable: Filterable and Witherable, and
-  their indexed versions, have all been split into separate
-  modules. The indexed versions export the functionality of the
-  nonindexed versions.
+  libraries and
+  [indexed-traversable](https://hackage.haskell.org/package/indexed-traversable):
+  Filterable and Witherable, and their indexed versions, have all been
+  split into separate modules. The indexed versions export the
+  functionality of the nonindexed versions.
 
 * No non-compliant instances
 
@@ -65,9 +70,7 @@ library. What's been changed?
 * No undecidable instances
 
   The undecidable instances (for the Sum, Compose and Product
-  functors) have been removed. I suspect it would be possible to
-  strengthen GHC's algorithm for resolving functional dependencies to
-  make these all decidable.
+  functors) have been removed
 
 * Where's it all gone?
 
