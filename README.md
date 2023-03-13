@@ -121,7 +121,7 @@ Contents:
 
 * [Control/Monad/State/Extra.hs](src-extra/Control/Monad/State/Extra.hs)
 
-    Monad functionality, which could possibly be moved into (which could conceivably be moved into
+    Monad functionality, which could possibly be moved into
       [transformers](https://hackage.haskell.org/package/transformers)
 
 * [Control/Monad/Transformers/Extra.hs](src-extra/Control/Monad/Transformers/Extra.hs)
