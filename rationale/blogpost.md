@@ -250,6 +250,9 @@ key-value pairs:
   [mutable hash trie](https://hackage.haskell.org/package/stm-containers)
   implementations
 * [`Data.Trie`](https://hackage.haskell.org/package/bytestring-trie-0.2.5.0/docs/Data-Trie.html), providing an efficient data structure replacing `Map String`;
+* Trie maps, as described by
+  [Peyton Jones and Graf](https://cs.paperswithcode.com/paper/triemaps-that-match),
+  which provide a data structure with Haskell code as keys;
 * Other prefix tree implementations, providing a useful data structure
   for `Map [a]`;
 * Spacetrees, which provide data structures for spatial data:
