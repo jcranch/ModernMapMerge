@@ -1,12 +1,16 @@
 {-# LANGUAGE
-      BangPatterns
+      BangPatterns,
+      CPP
   #-}
 
 
 -- | Merging for `IntMap` in this new framework
 module Data.IntMap.Merge where
 
+#if MIN_VERSION_base(4,18,0)
+#else
 import Control.Applicative (liftA2)
+#endif
 import Data.IntMap.Internal hiding (WhenMissing(..),
                                     runWhenMissing,
                                     WhenMatched(..))

@@ -9,6 +9,8 @@ module Data.MergeTactics where
 
 import Control.Category (Category)
 import Control.Monad ((<=<))
+import Data.Foldable.WithIndex (ifoldMap)
+import Data.Functor.Const
 import Data.Functor.Identity
 import Data.Functor.WithIndex
 import Data.Traversable.WithIndex
@@ -70,6 +72,15 @@ simpleMissingKey w i = runIdentity . missingKey w i
 -- | A `WhenMissing` tactic which runs `imapMaybe`.
 mapMaybeMissing :: Applicative f => (k -> x -> Maybe y) -> WhenMissing f k x y
 mapMaybeMissing f = WhenMissing (pure . imapMaybe f)
+
+-- | A `WhenMissing` tactic which folds (using a key), specialised to
+-- $f = Const m$.
+foldMissingKey :: Monoid m => (k -> x -> m) -> WhenMissing (Const m) k x y
+foldMissingKey f = WhenMissing (Const . ifoldMap f)
+
+-- | A `WhenMissing` tactic which folds, specialised to $f = Const m$.
+foldMissing :: Monoid m => (x -> m) -> WhenMissing (Const m) k x y
+foldMissing f = WhenMissing (Const . foldMap f)
 
 -- | A `WhenMissing` tactic which drops all elements. This is often
 -- rapid: often consisting of returning an empty data structure.

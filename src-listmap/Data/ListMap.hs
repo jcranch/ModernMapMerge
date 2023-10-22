@@ -1,12 +1,18 @@
-{-# LANGUAGE FlexibleInstances, MultiParamTypeClasses #-}
+{-# LANGUAGE
+      CPP,
+      FlexibleInstances,
+      MultiParamTypeClasses
+  #-}
 
 -- | Maps backed by lists of key/value pairs, in increasing order of
 -- key. This is unlikely to be a very attractive data structure, but
 -- it's nice to demonstrate that the same technology works.
 module Data.ListMap where
 
+#if MIN_VERSION_base(4,18,0)
+#else
 import Control.Applicative (liftA2)
-
+#endif
 import Data.Filterable.WithIndex
 import Data.Foldable.WithIndex
 import Data.Functor.WithIndex

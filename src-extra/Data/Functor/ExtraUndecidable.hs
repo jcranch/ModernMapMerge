@@ -1,4 +1,5 @@
 {-# LANGUAGE
+      CPP,
       FlexibleInstances,
       FunctionalDependencies,
       UndecidableInstances
@@ -6,7 +7,11 @@
 
 module Data.Functor.ExtraUndecidable where
 
+#if MIN_VERSION_base(4,18,0)
+#else
 import Control.Applicative (liftA2)
+#endif
+
 import Data.Functor.Compose
 import Data.Functor.Product as P
 import Data.Functor.Sum as Sum

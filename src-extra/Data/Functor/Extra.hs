@@ -1,4 +1,5 @@
 {-# LANGUAGE
+      CPP,
       FlexibleInstances,
       FunctionalDependencies,
       TupleSections
@@ -18,7 +19,10 @@ module Data.Functor.Extra where
 
 import Prelude hiding (filter)
 
+#if MIN_VERSION_base(4,18,0)
+#else
 import Control.Applicative (liftA2)
+#endif
 import Data.Functor.WithIndex
 import Data.Foldable.WithIndex
 import Data.Traversable.WithIndex

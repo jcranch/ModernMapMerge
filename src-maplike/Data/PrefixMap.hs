@@ -1,4 +1,5 @@
 {-# LANGUAGE
+      CPP,
       DeriveFunctor,
       FlexibleContexts,
       FlexibleInstances,
@@ -10,8 +11,10 @@ module Data.PrefixMap where
 
 import Prelude hiding (null)
 
+#if MIN_VERSION_base(4,18,0)
+#else
 import Control.Applicative (liftA2)
-
+#endif
 import Data.Filterable.WithIndex
 import Data.Foldable.WithIndex
 import Data.Functor.WithIndex
