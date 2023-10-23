@@ -9,8 +9,8 @@ category:           Data structures
 
 dependencies:
   - base                        >= 4.15         && < 4.19
-  - containers                  >= 0.6.4.1      && < 0.6.8
-  - indexed-traversable         >= 0.1.2        && < 0.1.4
+  - containers                  >= 0.6.4.1      && < 0.7
+  - indexed-traversable         >= 0.1.2        && < 0.2
 
 ghc-options:
   - -Wall
