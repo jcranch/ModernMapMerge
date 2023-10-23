@@ -2,6 +2,10 @@
 
 Dealing with liftA2 (using C preprocessor to maintain backwards compatibility)
 
+Bumping dependency versions.
+
+Finishing off summary document.
+
 ## 0.1.0.0 - 2023-03-13
 
 Initial version
