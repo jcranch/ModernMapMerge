@@ -1,8 +1,7 @@
-Changes from the original
-=========================
+## Witherable
 
 This is a trimmed-down version of Fumiaki Kinoshita's
-[Witherable](https://hackage.haskell.org/package/witherable)
+  [Witherable](https://hackage.haskell.org/package/witherable)
 library. What's been changed?
 
 * Fewer dependencies
@@ -70,7 +69,12 @@ library. What's been changed?
 * No undecidable instances
 
   The undecidable instances (for the Sum, Compose and Product
-  functors) have been removed
+  functors) have been removed.
+
+* No duplication
+
+  Witherable defines two collections of the same code, one
+  deprecated. The deprecated version has been removed.
 
 * Where's it all gone?
 
