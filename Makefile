@@ -6,7 +6,8 @@ documents: rationale/blogpost.html \
            rationale/summary.html \
            README.html \
            CHANGELOG.html \
-           current-approach/src/README.html \
+           current-approach/README.html \
+           prospective-approach/README.html \
            prospective-approach/src-extra/README.html \
            prospective-approach/src-listmap/README.html \
            prospective-approach/src-maplike/README.html \
