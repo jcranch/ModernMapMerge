@@ -9,16 +9,14 @@ module Data.MergeTactics where
 
 import Control.Category (Category)
 import Control.Monad ((<=<))
-import Data.Foldable.WithIndex (ifoldMap)
+import Data.Functor.Compose ()
 import Data.Functor.Const
 import Data.Functor.Identity
 import Data.Functor.WithIndex
-import Data.Traversable.WithIndex
 
 -- This import allows us to define instances
 import qualified Control.Category
 
-import Data.Filterable.WithIndex
 import Data.Witherable.WithIndex
 import Data.IMaybe
 
@@ -121,3 +119,72 @@ filterAMissing f = WhenMissing (ifilterA f)
 newtype WhenMatched f i x y z = WhenMatched {
   matchedKey :: i -> x -> y -> f (Maybe z)
 }
+
+-- Functor . Functor
+{-# RULES
+  "fmap.fmap"           forall f g a.  fmap g (fmap f a) = fmap (g . f) a
+  #-}
+
+-- Functor . FunctorWithIndex
+{-# RULES
+  "fmap.imap"           forall f g a.  fmap g (imap f a) = imap (\i -> g . f i) a
+  #-}
+
+-- Functor . Traversable
+{-# RULES
+  "fmap.traverse"       forall f g a.  fmap (fmap g) (traverse f a) = traverse (fmap g . f) a
+  #-}
+
+-- Functor . TraversableWithIndex
+{-# RULES
+  "fmap.itraverse"      forall f g a.  fmap (fmap g) (itraverse f a) = itraverse (\i -> fmap g . f i) a
+  #-}
+
+-- Functor . Filterable
+{-# RULES
+  "fmap.filter"         forall f g a.  fmap g (filter f a) = mapMaybe (\x -> if f x then Just (g x) else Nothing) a
+  "fmap.mapMaybe"       forall f g a.  fmap g (mapMaybe f a) = mapMaybe (fmap g . f) a
+  "fmap.catMaybes"      forall g a.    fmap g (catMaybes a) = mapMaybe (fmap g) a
+  #-}
+
+-- Foldable . Functor 
+{-# RULES
+  "foldMap.fmap"        forall f g a.  foldMap g (fmap f a) = foldMap (g . f) a
+  #-}
+
+-- FunctorWithIndex . Functor
+{-# RULES
+  "imap.fmap"           forall f g a.  imap g (fmap f a) = imap (\i -> g i . f) a
+  #-}
+
+-- FunctorWithIndex . FunctorWithIndex
+{-# RULES
+  "imap.imap"           forall f g a.  imap g (imap f a) = imap (\i -> g i . f i) a
+  #-}
+
+-- Traversable . Traversable
+{-# RULES
+  "traverse.traverse"   forall f g a.  fmap (traverse g) (traverse f a) = getCompose (traverse (Compose . fmap g . f) a)
+  #-}
+
+-- Filterable . Functor
+{-# RULES
+  "filter.fmap"         forall f g a.  filter g (fmap f a) = mapMaybe ((\x -> if g x then Just x else Nothing) . f) a
+  "mapMaybe.fmap"       forall f g a.  mapMaybe g (fmap f a) = mapMaybe (g . f) a
+  "catMaybes.fmap"      forall f a.    catMaybes (fmap f a) = mapMaybe f a
+  #-}
+
+-- Filterable . Filterable
+{-# RULES
+  "filter.filter"       forall f g a.  filter g (filter f a) = filter (liftA2 (&&) f g) a
+  "filter.mapMaybe"     forall f g a.  filter g (mapMaybe f a) = _
+  "mapMaybe.mapMaybe"   forall f g a.  mapMaybe g (mapMaybe f a) = _
+  "mapMaybe.filter"     forall f g a.  mapMaybe g (filter f a) = _
+  #-}
+
+-- Witherable . Witherable
+
+-- WitherableWithIndex . WitherableWithIndex
+{-# RULES
+  "iwither.iwither"     forall f g a.  fmap (iwither g) . iwither f = getCompose . iwither (Compose . _)
+  #-}
