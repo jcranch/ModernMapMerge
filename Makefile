@@ -7,6 +7,7 @@ documents: rationale/blogpost.html \
            rationale/summary.html \
            README.html \
            CHANGELOG.html \
+           mini-witherable/README.html \
            current-approach/README.html \
            prospective-approach/README.html \
            prospective-approach/src-extra/README.html \

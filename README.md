@@ -14,7 +14,7 @@ practical account of what this repository contains.
 
 ## Packages: serious code
 
-### Witherable
+### mini-witherable
 
 This is a slight rewrite of Kinoshita's
   [witherable](https://hackage.haskell.org/package/witherable)
@@ -44,6 +44,7 @@ Contents:
 * [Data/Witherable/WithIndex.hs](prospective-approach/src-witherable/Data/Witherable/WithIndex.hs)
 
     As above, but indexed
+
 
 ### ModernMapMerge
 
