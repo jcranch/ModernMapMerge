@@ -1,4 +1,5 @@
 build:
+	cd mini-witherable ; stack build
 	cd current-approach ; stack build
 	cd prospective-approach ; stack build
 

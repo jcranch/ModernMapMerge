@@ -1,0 +1,25 @@
+name:               mini-witherable
+version:            0.1.0.0
+author:             "Fumiaki Kinoshita, James Cranch"
+maintainer:         "j.d.cranch@sheffield.ac.uk"
+copyright:          "2014-23 Fumiaki Kinoshita, 2022-23 James Cranch"
+synopsis:           Filtering with effects
+category:           Data structures
+
+dependencies:
+  - base                        >= 4.15         && < 4.19
+  - containers                  >= 0.6.4.1      && < 0.7
+  - indexed-traversable         >= 0.1.2        && < 0.2
+
+ghc-options:
+  - -Wall
+  - -Wcompat
+  - -Wincomplete-record-updates
+  - -Wincomplete-uni-patterns
+  - -Wredundant-constraints
+  - -Werror
+  - -Wwarn=missing-home-modules
+  - -O2
+
+library:
+  source-dirs:      src
