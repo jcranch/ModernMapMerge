@@ -8,7 +8,7 @@
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Witherable
--- Copyright   :  (c) Fumiaki Kinoshita 2020, James Cranch 2021
+-- Copyright   :  (c) Fumiaki Kinoshita 2014-23, James Cranch 2021-23
 -- License     :  BSD3
 --
 -- Maintainer  :  Fumiaki Kinoshita <fumiexcel@gmail.com>
@@ -20,14 +20,29 @@
 -- | Support for indexed data structures whose elements can be removed
 -- and traversed.
 module Data.Witherable.WithIndex (
+  Functor(..),
+  FunctorWithIndex(..),
+  Filterable(..),
+  FilterableWithIndex(..),
+  Foldable(..),
+  FoldableWithIndex(..),
+  Traversable(..),
+  TraversableWithIndex(..),
   Witherable(..),
   WitherableWithIndex(..),
-  defaultIwither,
+  -- helper functions from Data.Filterable
+  (<$?>),
+  (<&?>),
+  -- helper functions from Data.Witherable
+  mapMaybeByWithering,
+  forMaybe,
+  -- helper functions from Data.Filterable.WithIndex
+  imapMaybeList,
+  -- helper functions from this module
   mapMaybeDefault,
   imapMaybeDefault,
-  mapMaybeByWithering,
   imapMaybeByWithering,
-  iwitherList,
+  defaultiwither,
 ) where
 
 import Control.Applicative
@@ -48,22 +63,16 @@ import Data.Filterable.WithIndex
 import Data.Witherable
 
 
--- | A default withering function; provided separately since it's
--- useful for some data types which are not WitherableWithIndex (such
--- as lists).
-defaultIwither :: (Filterable t, TraversableWithIndex i t, Applicative f)
-              => (i -> a -> f (Maybe b)) -> t a -> f (t b)
-defaultIwither f = fmap catMaybes . itraverse f
-
-
 -- | Indexed variant of 'Witherable'.
-class (FilterableWithIndex i t, TraversableWithIndex i t, Witherable t)
+class (FilterableWithIndex i t,
+       TraversableWithIndex i t,
+       Witherable t)
     => WitherableWithIndex i t | t -> i where
   -- | Effectful 'imapMaybe'.
   --
   -- @'iwither' (\ i -> 'pure' . f i) ≡ 'pure' . 'imapMaybe' f@
   iwither :: (Applicative f) => (i -> a -> f (Maybe b)) -> t a -> f (t b)
-  iwither = defaultIwither
+  iwither = defaultiwither
 
   -- | Monadic variant of 'iwither'. This may have more efficient
   -- implementation.
@@ -80,7 +89,8 @@ class (FilterableWithIndex i t, TraversableWithIndex i t, Witherable t)
 
 -- | A default `imapMaybe` obtained by running `iwither`.
 imapMaybeByWithering :: (WitherableWithIndex i t) => (i -> a -> Maybe b) -> t a -> t b
-imapMaybeByWithering f = runIdentity . iwither (\ i x -> Identity $ f i x)
+imapMaybeByWithering f = runIdentity . iwither (\i -> Identity . f i)
+
 
 instance WitherableWithIndex () Maybe
 
@@ -128,7 +138,10 @@ instance (FunctorWithIndex i f, FoldableWithIndex i f, Alternative f) => Filtera
 instance (Alternative f, T.Traversable f) => Witherable (WrappedFoldable i f)
 
 
--- | Just like we did for FilterableWithIndex, we provide the
--- nonconformant functionality as a separate function.
-iwitherList :: (Applicative f) => (Int -> a -> f (Maybe b)) -> [a] -> f [b]
-iwitherList p = wither (uncurry p) . zip [0..]
+-- | The conditions under which 'iwither' is defined are weaker than
+-- 'Witherable': for example, lists, vectors and sequences do not have
+-- lawful 'Witherable' instances but this function may nevertheless be
+-- useful.
+defaultiwither :: (Applicative f, Filterable t, TraversableWithIndex i t) => (i -> a -> f (Maybe b)) -> t a -> f (t b)
+defaultiwither f = fmap catMaybes . itraverse f
+

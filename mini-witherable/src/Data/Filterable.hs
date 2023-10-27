@@ -5,9 +5,26 @@
       Safe
   #-}
 
+-----------------------------------------------------------------------------
+-- |
+-- Module      :  Witherable
+-- Copyright   :  (c) Fumiaki Kinoshita 2014-23, James Cranch 2021-23
+-- License     :  BSD3
+--
+-- Maintainer  :  Fumiaki Kinoshita <fumiexcel@gmail.com>
+-- Stability   :  provisional
+-- Portability :  non-portable
+--
+-----------------------------------------------------------------------------
+
 -- | Support for data structures whose elements can be selectively
 -- removed.
-module Data.Filterable where
+module Data.Filterable (
+  Functor(..),
+  Filterable(..),
+  (<$?>),
+  (<&?>),
+  ) where
 
 import Control.Applicative
 import Control.Arrow (Kleisli(..))
@@ -26,9 +43,11 @@ import qualified Data.Sequence as S
 import qualified GHC.Generics as Generics
 import qualified Prelude
 
--- | Like 'Functor', but you can remove elements instead of updating them.
+-- | Like 'Functor', but you can remove elements as well as updating
+-- them.
 --
--- Formally, the class 'Filterable' represents a functor from @Kleisli Maybe@ to @Hask@.
+-- Formally, the class 'Filterable' represents a functor from @Kleisli
+-- Maybe@ to @Hask@.
 --
 -- A definition of 'mapMaybe' must satisfy the following laws:
 --
@@ -57,7 +76,7 @@ class (Functor f) => Filterable f where
 
   -- | Empty a Filterable.
   --
-  -- Normally this is better implemented as a constant map:
+  -- In many examples this is implemented as a constant map:
   -- @flush _ = someEmptyThing@
   flush :: f a -> f b
   flush = mapMaybe (const Nothing)
@@ -110,10 +129,6 @@ instance Filterable S.Seq where
   {-# INLINABLE mapMaybe #-}
   filter = S.filter
 
-
--- The instances for Compose, Product, and Sum are not entirely
--- unique. Any particular composition, product, or sum of functors
--- may support a variety of 'wither' implementations.
 
 instance (Functor f, Filterable g) => Filterable (Compose f g) where
   mapMaybe f = Compose . fmap (mapMaybe f) . getCompose

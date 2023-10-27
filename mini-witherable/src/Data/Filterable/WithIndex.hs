@@ -4,16 +4,35 @@
       Safe
   #-}
 
--- This has an orphan which should be moved elsewhere
+-- This file has an orphan instance (FoldableWithIndex, for Kleisli)
+-- which I have attempted to move upstream.
 {-# OPTIONS_GHC
       -fno-warn-orphans
   #-}
 
+-----------------------------------------------------------------------------
+-- |
+-- Module      :  Witherable
+-- Copyright   :  (c) Fumiaki Kinoshita 2014-23, James Cranch 2021-23
+-- License     :  BSD3
+--
+-- Maintainer  :  Fumiaki Kinoshita <fumiexcel@gmail.com>
+-- Stability   :  provisional
+-- Portability :  non-portable
+--
+-----------------------------------------------------------------------------
+
 -- | Support for indexed data structures whose elements can be
 -- selectively removed.
 module Data.Filterable.WithIndex (
+  Functor(..),
+  FunctorWithIndex(..),
   Filterable(..),
   FilterableWithIndex(..),
+  -- helper functions from Data.Filterable
+  (<$?>),
+  (<&?>),
+  -- helper functions from this module
   imapMaybeList,
 ) where
 
@@ -31,7 +50,9 @@ import Data.Filterable
 
 
 -- | Indexed variant of 'Filterable'.
-class (FunctorWithIndex i t, Filterable t) => FilterableWithIndex i t | t -> i where
+class (FunctorWithIndex i t,
+       Filterable t)
+    => FilterableWithIndex i t | t -> i where
   imapMaybe :: (i -> a -> Maybe b) -> t a -> t b
   imapMaybe f = catMaybes . imap f
   {-# INLINE imapMaybe #-}
@@ -54,8 +75,10 @@ instance FilterableWithIndex k (M.Map k) where
 instance FilterableWithIndex Void Proxy
 
 -- Should be put in indexed-traversable
+-- cf https://github.com/haskellari/indexed-traversable/pull/19
 instance Functor m => FunctorWithIndex a (Kleisli m a) where
   imap f (Kleisli p) = Kleisli (\x -> fmap (f x) (p x))
+
 
 instance MonadPlus m => FilterableWithIndex a (Kleisli m a) where
   imapMaybe f (Kleisli p) = Kleisli (\x -> maybe mzero pure . f x =<< p x)

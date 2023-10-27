@@ -5,24 +5,48 @@
       Safe
   #-}
 
+-----------------------------------------------------------------------------
+-- |
+-- Module      :  Witherable
+-- Copyright   :  (c) Fumiaki Kinoshita 2014-23, James Cranch 2021-23
+-- License     :  BSD3
+--
+-- Maintainer  :  Fumiaki Kinoshita <fumiexcel@gmail.com>
+-- Stability   :  provisional
+-- Portability :  non-portable
+--
+-----------------------------------------------------------------------------
+
 -- | Support for data structures whose elements can be removed and
 -- traversed.
-module Data.Witherable where
+module Data.Witherable (
+  Functor(..),
+  Foldable(..),
+  Traversable(..),
+  Filterable(..),
+  Witherable(..),
+  -- helper functions from Data.Filterable
+  (<$?>),
+  (<&?>),
+  -- helper functions from this module
+  mapMaybeByWithering,
+  forMaybe,
+  ) where
 
 import Control.Applicative
 import Data.Bool (bool)
 import Data.Functor.Compose
 import Data.Functor.Identity
-import Data.Functor.Product as P
+import Data.Functor.Product as Product
 import Data.Functor.Sum as Sum
 import Data.Monoid
 import Data.Proxy
+import Data.Traversable
 import Prelude hiding (filter)
 import qualified Data.Foldable as F
 import qualified Data.IntMap.Lazy as IM
 import qualified Data.Map.Lazy as M
 import qualified Data.Sequence as S
-import qualified Data.Traversable as T
 import qualified GHC.Generics as Generics
 
 import Data.Filterable
@@ -45,13 +69,15 @@ import Data.Filterable
 --
 --   @t . 'wither' f ≡ 'wither' (t . f)@
 
-class (T.Traversable t, Filterable t) => Witherable t where
+class (Traversable t,
+       Filterable t)
+    => Witherable t where
 
   -- | Effectful 'mapMaybe'.
   --
   -- @'wither' ('pure' . f) ≡ 'pure' . 'mapMaybe' f@
   wither :: Applicative f => (a -> f (Maybe b)) -> t a -> f (t b)
-  wither f = fmap catMaybes . T.traverse f
+  wither f = fmap catMaybes . traverse f
   {-# INLINE wither #-}
 
   -- | Monadic variant of 'wither'. This may have more efficient implementation.
@@ -140,25 +166,25 @@ instance Witherable S.Seq where
   {-# INLINABLE witherM #-}
 -}
 
-instance (T.Traversable f, Witherable g) => Witherable (Compose f g) where
-  wither f = fmap Compose . T.traverse (wither f) . getCompose
-  witherM f = fmap Compose . T.mapM (witherM f) . getCompose
-  filterA p = fmap Compose . T.traverse (filterA p) . getCompose
+instance (Traversable f, Witherable g) => Witherable (Compose f g) where
+  wither f = fmap Compose . traverse (wither f) . getCompose
+  witherM f = fmap Compose . mapM (witherM f) . getCompose
+  filterA p = fmap Compose . traverse (filterA p) . getCompose
 
-instance (Witherable f, Witherable g) => Witherable (P.Product f g) where
-  wither f (P.Pair x y) = liftA2 P.Pair (wither f x) (wither f y)
-  witherM f (P.Pair x y) = liftA2 P.Pair (witherM f x) (witherM f y)
-  filterA p (P.Pair x y) = liftA2 P.Pair (filterA p x) (filterA p y)
+instance (Witherable f, Witherable g) => Witherable (Product.Product f g) where
+  wither f (Pair x y) = liftA2 Pair (wither f x) (wither f y)
+  witherM f (Pair x y) = liftA2 Pair (witherM f x) (witherM f y)
+  filterA p (Pair x y) = liftA2 Pair (filterA p x) (filterA p y)
 
 instance (Witherable f, Witherable g) => Witherable (Sum.Sum f g) where
-  wither f (Sum.InL x) = Sum.InL <$> wither f x
-  wither f (Sum.InR y) = Sum.InR <$> wither f y
+  wither f (InL x) = InL <$> wither f x
+  wither f (InR y) = InR <$> wither f y
 
-  witherM f (Sum.InL x) = Sum.InL <$> witherM f x
-  witherM f (Sum.InR y) = Sum.InR <$> witherM f y
+  witherM f (InL x) = InL <$> witherM f x
+  witherM f (InR y) = InR <$> witherM f y
 
-  filterA f (Sum.InL x) = Sum.InL <$> filterA f x
-  filterA f (Sum.InR y) = Sum.InR <$> filterA f y
+  filterA f (InL x) = InL <$> filterA f x
+  filterA f (InR y) = InR <$> filterA f y
 
 instance Witherable Generics.V1 where
   wither _ v = pure $ case v of {}
@@ -195,10 +221,10 @@ instance (Witherable f, Witherable g) => Witherable ((Generics.:+:) f g) where
   filterA f (Generics.L1 a) = fmap Generics.L1 (filterA f a)
   filterA f (Generics.R1 a) = fmap Generics.R1 (filterA f a)
 
-instance (T.Traversable f, Witherable g) => Witherable ((Generics.:.:) f g) where
-  wither f = fmap Generics.Comp1 . T.traverse (wither f) . Generics.unComp1
-  witherM f = fmap Generics.Comp1 . T.mapM (witherM f) . Generics.unComp1
-  filterA f = fmap Generics.Comp1 . T.traverse (filterA f) . Generics.unComp1
+instance (Traversable f, Witherable g) => Witherable ((Generics.:.:) f g) where
+  wither f = fmap Generics.Comp1 . traverse (wither f) . Generics.unComp1
+  witherM f = fmap Generics.Comp1 . mapM (witherM f) . Generics.unComp1
+  filterA f = fmap Generics.Comp1 . traverse (filterA f) . Generics.unComp1
 
 -- | @'forMaybe' = 'flip' 'wither'@
 forMaybe :: (Witherable t, Applicative f) => t a -> (a -> f (Maybe b)) -> f (t b)
