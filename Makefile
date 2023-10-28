@@ -10,8 +10,7 @@ documents: rationale/blogpost.html \
            modern-map-merge/src-extra/README.html \
            modern-map-merge/src-listmap/README.html \
            modern-map-merge/src-maplike/README.html \
-           modern-map-merge/src-modernmapmerge/README.html \
-           modern-map-merge/src-witherable/README.html
+           modern-map-merge/src-modernmapmerge/README.html
 
 %.html: %.md
 	markdown $< >$@

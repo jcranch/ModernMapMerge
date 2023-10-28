@@ -25,23 +25,24 @@ if desired).
 
 Contents:
 
-* [notes.md](prospective-approach/src-witherable/README.md)
+* [README.md](mini-witherable/README.md)
 
-    A more complete account of changes made to Kinoshita's package
+    An introduction to the package, the philosophy behind the decision
+    to fork it, and an account of the changes.
 
-* [Data/Filterable.hs](prospective-approach/src-witherable/Data/Filterable.hs)
+* [Data/Filterable.hs](mini-witherable/src/Data/Filterable.hs)
 
     Data structures which can have elements removed from them
 
-* [Data/Filterable/WithIndex.hs](prospective-approach/src-witherable/Data/Filterable/WithIndex.hs)
+* [Data/Filterable/WithIndex.hs](mini-witherable/src/Data/Filterable/WithIndex.hs)
 
     As above, but indexed
 
-* [Data/Witherable.hs](prospective-approach/src-witherable/Data/Witherable.hs)
+* [Data/Witherable.hs](mini-witherable/src/Data/Witherable.hs)
 
     Data structures which can have elements removed, but in a functor
 
-* [Data/Witherable/WithIndex.hs](prospective-approach/src-witherable/Data/Witherable/WithIndex.hs)
+* [Data/Witherable/WithIndex.hs](mini-witherable/src/Data/Witherable/WithIndex.hs)
 
     As above, but indexed
 

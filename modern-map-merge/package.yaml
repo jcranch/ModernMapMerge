@@ -3,7 +3,7 @@ version:            0.2.0.0
 license:            BSD3
 author:             "James Cranch"
 maintainer:         "j.d.cranch@sheffield.ac.uk"
-copyright:          "2022-23 James Cranch (all), 2020 Fumiaki Kinoshita (witherable)"
+copyright:          "2022-23 James Cranch (all), 2020 Fumiaki Kinoshita (mini-witherable)"
 synopsis:           Proof-of-concept for improved merges in Haskell
 category:           Data structures
 
@@ -25,29 +25,26 @@ ghc-options:
 library:
   source-dirs:      src-modernmapmerge
   dependencies:
-    - witherable
+    - mini-witherable
 
 internal-libraries:
-
-  witherable:
-    source-dirs:    src-witherable
 
   listmap:
     source-dirs:    src-listmap
     dependencies:
       - modernmapmerge
-      - witherable
+      - mini-witherable
 
   maplike:
     source-dirs:    src-maplike
     dependencies:
       - modernmapmerge
-      - witherable
+      - mini-witherable
 
   extra:
     source-dirs:    src-extra
     dependencies:
-      - witherable
+      - mini-witherable
       - modernmapmerge
       - array                         >= 0.5.4.0  && < 0.6
       - data-default                  >= 0.7.1.1  && < 0.8

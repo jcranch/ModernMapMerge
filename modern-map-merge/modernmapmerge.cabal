@@ -10,7 +10,7 @@ synopsis:       Proof-of-concept for improved merges in Haskell
 category:       Data structures
 author:         James Cranch
 maintainer:     j.d.cranch@sheffield.ac.uk
-copyright:      2022-23 James Cranch (all), 2020 Fumiaki Kinoshita (witherable)
+copyright:      2022-23 James Cranch (all), 2020 Fumiaki Kinoshita (mini-witherable)
 license:        BSD3
 build-type:     Simple
 
@@ -32,7 +32,7 @@ library
       base >=4.15 && <4.19
     , containers >=0.6.4.1 && <0.7
     , indexed-traversable >=0.1.2 && <0.2
-    , witherable
+    , mini-witherable
   default-language: Haskell2010
 
 library extra
@@ -59,11 +59,11 @@ library extra
     , hashable >=1.3.5 && <1.5
     , indexed-traversable >=0.1.2 && <0.2
     , indexed-traversable-instances >=0.1.1 && <0.2
+    , mini-witherable
     , modernmapmerge
     , transformers >=0.5.6.2 && <0.7
     , unordered-containers >=0.2.16 && <0.3
     , vector >=0.12.3.1 && <0.14
-    , witherable
   default-language: Haskell2010
 
 library listmap
@@ -80,8 +80,8 @@ library listmap
       base >=4.15 && <4.19
     , containers >=0.6.4.1 && <0.7
     , indexed-traversable >=0.1.2 && <0.2
+    , mini-witherable
     , modernmapmerge
-    , witherable
   default-language: Haskell2010
 
 library maplike
@@ -99,20 +99,6 @@ library maplike
       base >=4.15 && <4.19
     , containers >=0.6.4.1 && <0.7
     , indexed-traversable >=0.1.2 && <0.2
+    , mini-witherable
     , modernmapmerge
-    , witherable
-  default-language: Haskell2010
-
-library witherable
-  other-modules:
-      Paths_modernmapmerge
-  autogen-modules:
-      Paths_modernmapmerge
-  hs-source-dirs:
-      src-witherable
-  ghc-options: -Wall -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints -Werror -Wwarn=missing-home-modules -O2
-  build-depends:
-      base >=4.15 && <4.19
-    , containers >=0.6.4.1 && <0.7
-    , indexed-traversable >=0.1.2 && <0.2
   default-language: Haskell2010
