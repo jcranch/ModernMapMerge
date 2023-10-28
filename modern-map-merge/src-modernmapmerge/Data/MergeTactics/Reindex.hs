@@ -1,6 +1,9 @@
 {-# LANGUAGE FlexibleInstances, MultiParamTypeClasses #-}
 
--- | This provides support for reindexing a datatype along a function
+-- | This provides support for reindexing a datatype along a function;
+-- it exists purely to support the definition of "reindexed" in
+-- Data.MergeTactics, and it is unlikely a user will want to import it
+-- directly.
 module Data.MergeTactics.Reindex where
 
 import Data.Functor.WithIndex
@@ -9,8 +12,6 @@ import Data.Traversable.WithIndex
 
 import Data.Filterable.WithIndex
 import Data.Witherable.WithIndex
-
-import Data.MergeTactics
 
 
 -- | If @n x@ has indices of type @i@, then @Reindexed i j n x@ has
@@ -54,9 +55,3 @@ instance WitherableWithIndex i n => WitherableWithIndex j (Reindexed i j n) wher
 -- | This avoids nesting instances of `Reindexed`.
 rereindex :: (j -> k) -> Reindexed i j n x -> Reindexed i k n x
 rereindex f (Reindexed r m) = Reindexed (f . r) m
-
-
--- | We can use this formalism to change the indices in a
--- `WhenMissing`. This construction is why the code was written.
-reindexWithering :: (Functor f) => (i -> j) -> WhenMissing f j x y -> WhenMissing f i x y
-reindexWithering r w = WhenMissing (fmap underlying . runWhenMissing w . Reindexed r)

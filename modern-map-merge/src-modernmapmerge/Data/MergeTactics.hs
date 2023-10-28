@@ -19,6 +19,7 @@ import qualified Control.Category
 
 import Data.Witherable.WithIndex
 import Data.IMaybe
+import Data.MergeTactics.Reindex
 
 
 -- | A tactic for dealing with keys present in one map but not the
@@ -114,11 +115,49 @@ traverseMissing f = WhenMissing (itraverse f)
 filterAMissing :: Applicative f => (k -> x -> f Bool) -> WhenMissing f k x x
 filterAMissing f = WhenMissing (ifilterA f)
 
+-- | We can use this formalism to change the indices in a
+-- `WhenMissing`.
+reindexMissing :: (Functor f) => (i -> j) -> WhenMissing f j x y -> WhenMissing f i x y
+reindexMissing r w = WhenMissing (fmap underlying . runWhenMissing w . Reindexed r)
+
 
 -- | A tactic for keys present in both maps.
 newtype WhenMatched f i x y z = WhenMatched {
   matchedKey :: i -> x -> y -> f (Maybe z)
 }
+
+reindexMatched :: (i -> j) -> WhenMatched f j x y z -> WhenMatched f i x y z
+reindexMatched p (WhenMatched f) = WhenMatched (f . p)
+
+dropMatched :: WhenMatched f i x y z
+dropMatched = WhenMatched (\_ _ _ -> pure Nothing)
+
+zipWithMaybeAMatched :: Applicative f => (k -> x -> y -> f (Maybe z)) -> WhenMatched f k x y z
+zipWithMaybeAMatched = WhenMatched
+
+zipWithAMatched :: Applicative f => (k -> x -> y -> f z) -> WhenMatched f k x y z
+zipWithAMatched f = WhenMatched (\i x y -> fmap Just $ f i x y)
+
+zipWithMaybeMatched :: Applicative f => (k -> x -> y -> Maybe z) -> WhenMatched f k x y z 
+zipWithMaybeMatched f = WhenMatched (\i x y -> pure $ f i x y)
+
+zipWithMatched :: Applicative f => (k -> x -> y -> z) -> WhenMatched f k x y z
+zipWithMaybeMatched f = WhenMatched (\i x y -> pure . Just $ f i x y)
+
+preserveLeftMatched :: Applicative f => WhenMatched f k x y x
+preserveLeftMatched = WhenMatched (\_ x _ -> pure $ Just x)
+
+preserveRightMatched :: Applicative f => WhenMatched f k x y y
+preserveRightMatched = WhenMatched (\_ _ y -> pure $ Just y)
+
+onLeftMatched :: WhenMissing f k x z -> WhenMatched f k x y z
+onLeftMatched m = WhenMatched (\i x _ -> simpleMissingKey m i x)
+
+onRightMatched :: WhenMissing f k y z -> WhenMatched f k x y z
+onRightMatched m = WhenMatched (\i _ y -> simpleMissingKey m i y)
+
+-- TODO I think there are more standard tactics than this.
+
 
 -- Functor . Functor
 {-# RULES

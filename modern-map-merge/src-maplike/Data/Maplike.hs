@@ -36,13 +36,44 @@ class WitherableWithIndex k m => Maplike k m | m -> k where
          -> m v
          -> f (m v)
 
-  mergeA :: (Applicative f)
-         => WhenMissing f k a c -- ^ What to do with keys in @m1@ but not @m2@
-         -> WhenMissing f k b c -- ^ What to do with keys in @m2@ but not @m1@
-         -> WhenMatched f k a b c -- ^ What to do with keys in both @m1@ and @m2@
+  -- Merge two data structures
+  -- Some data structures can implement unindexed merging rather more
+  -- efficiently. This is particularly true of tries, where accessing
+  -- the keys requires assembling a list.
+  merge :: WhenMissing Identity () a c -- ^ What to do with keys in @m1@ but not @m2@
+        -> WhenMissing Identity () b c -- ^ What to do with keys in @m2@ but not @m1@
+        -> WhenMatched Identity () a b c -- ^ What to do with keys in both @m1@ and @m2@
+        -> m a -- ^ Map @m1@
+        -> m b -- ^ Map @m2@
+        -> m c
+  merge onL onR onB u v = runIdentity $ mergeA onL onR onB u v
+
+  -- Merge, valued in an applicative functor
+  mergeA :: WhenMissing Identity f a c -- ^ What to do with keys in @m1@ but not @m2@
+         -> WhenMissing Identity f b c -- ^ What to do with keys in @m2@ but not @m1@
+         -> WhenMatched Identity f a b c -- ^ What to do with keys in both @m1@ and @m2@
          -> m a -- ^ Map @m1@
          -> m b -- ^ Map @m2@
          -> f (m c)
+  mergeA onL onR onB = imergeA (reindexWhenMissing onL) (reindexWhenMissing onR) (reindexWhenMatched onB)
+
+  -- Merge, using indices
+  imerge :: WhenMissing Identity k a c -- ^ What to do with keys in @m1@ but not @m2@
+         -> WhenMissing Identity k b c -- ^ What to do with keys in @m2@ but not @m1@
+         -> WhenMatched Identity k a b c -- ^ What to do with keys in both @m1@ and @m2@
+         -> m a -- ^ Map @m1@
+         -> m b -- ^ Map @m2@
+         -> m c
+  imerge onL onR onB u v = runIdentity $ imergeA onL onR onB u v
+
+  -- Merge, using indices, valued in an applicative functor
+  imergeA :: Applicative f
+          => WhenMissing f k a c -- ^ What to do with keys in @m1@ but not @m2@
+          -> WhenMissing f k b c -- ^ What to do with keys in @m2@ but not @m1@
+          -> WhenMatched f k a b c -- ^ What to do with keys in both @m1@ and @m2@
+          -> m a -- ^ Map @m1@
+          -> m b -- ^ Map @m2@
+          -> f (m c)
 
 nonNull :: Maplike k m => m v -> Maybe (m v)
 nonNull m
@@ -72,3 +103,14 @@ instance Maplike Int IntMap where
   singleton = I.singleton
   alterF = I.alterF
   mergeA = I.mergeA
+
+
+-- | Union, preferring left
+union :: Maplike k m => m v -> m v -> m v
+union = merge preserveMissing preserveMissing preserveLeftMatched
+
+-- | Intersection, preferring left
+intersection :: Maplike k m => m v -> m v -> m v
+intersection = merge dropMissing dropMissing preserveLeftMatched
+
+-- TODO There are many more standard functions
