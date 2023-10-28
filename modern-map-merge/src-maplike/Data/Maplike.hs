@@ -109,8 +109,29 @@ instance Maplike Int IntMap where
 union :: Maplike k m => m v -> m v -> m v
 union = merge preserveMissing preserveMissing preserveLeftMatched
 
+-- | Union, with combining function
+unionWith :: Maplike k m => (v -> v -> v) -> m v -> m v -> m v
+unionWith f = merge preserveMissing preserveMissing (zipWithMatched $ const f)
+
 -- | Intersection, preferring left
 intersection :: Maplike k m => m v -> m v -> m v
 intersection = merge dropMissing dropMissing preserveLeftMatched
+
+-- | Intersection, with combining function
+intersectionWith :: Maplike k m => (v -> v -> v) -> m v -> m v -> m v
+intersectionWith f = merge dropMissing dropMissing (zipWithMatched $ const f)
+
+-- | Combine matching pairs
+pairBy :: (Maplike k m, Monoid a) -> (u -> v -> a) -> m u -> m v -> a
+pairBy f u v = let
+  m = mergeA dropMissing dropMissing (zipWithAMatched (\_ x y -> Const $ f x y))
+  getConst $ m u v
+
+-- | Combine matching pairs
+ipairBy :: (Maplike k m, Monoid a) -> (i -> u -> v -> a) -> m u -> m v -> a
+ipairBy f u v = let
+  m = mergeA dropMissing dropMissing (zipWithAMatched (\i x y -> Const $ f i x y))
+  in getConst $ m u v
+
 
 -- TODO There are many more standard functions
