@@ -13,6 +13,8 @@ import Data.Functor.Compose ()
 import Data.Functor.Const
 import Data.Functor.Identity
 import Data.Functor.WithIndex
+import Data.Foldable.WithIndex
+import Data.Traversable.WithIndex
 
 -- This import allows us to define instances
 import qualified Control.Category
@@ -129,20 +131,20 @@ newtype WhenMatched f i x y z = WhenMatched {
 reindexMatched :: (i -> j) -> WhenMatched f j x y z -> WhenMatched f i x y z
 reindexMatched p (WhenMatched f) = WhenMatched (f . p)
 
-dropMatched :: WhenMatched f i x y z
+dropMatched :: Applicative f => WhenMatched f i x y z
 dropMatched = WhenMatched (\_ _ _ -> pure Nothing)
 
-zipWithMaybeAMatched :: Applicative f => (k -> x -> y -> f (Maybe z)) -> WhenMatched f k x y z
+zipWithMaybeAMatched :: (k -> x -> y -> f (Maybe z)) -> WhenMatched f k x y z
 zipWithMaybeAMatched = WhenMatched
 
-zipWithAMatched :: Applicative f => (k -> x -> y -> f z) -> WhenMatched f k x y z
+zipWithAMatched :: Functor f => (k -> x -> y -> f z) -> WhenMatched f k x y z
 zipWithAMatched f = WhenMatched (\i x y -> fmap Just $ f i x y)
 
-zipWithMaybeMatched :: Applicative f => (k -> x -> y -> Maybe z) -> WhenMatched f k x y z 
+zipWithMaybeMatched :: Applicative f => (k -> x -> y -> Maybe z) -> WhenMatched f k x y z
 zipWithMaybeMatched f = WhenMatched (\i x y -> pure $ f i x y)
 
 zipWithMatched :: Applicative f => (k -> x -> y -> z) -> WhenMatched f k x y z
-zipWithMaybeMatched f = WhenMatched (\i x y -> pure . Just $ f i x y)
+zipWithMatched f = WhenMatched (\i x y -> pure . Just $ f i x y)
 
 preserveLeftMatched :: Applicative f => WhenMatched f k x y x
 preserveLeftMatched = WhenMatched (\_ x _ -> pure $ Just x)
@@ -150,9 +152,9 @@ preserveLeftMatched = WhenMatched (\_ x _ -> pure $ Just x)
 preserveRightMatched :: Applicative f => WhenMatched f k x y y
 preserveRightMatched = WhenMatched (\_ _ y -> pure $ Just y)
 
-onLeftMatched :: WhenMissing f k x z -> WhenMatched f k x y z
-onLeftMatched m = WhenMatched (\i x _ -> simpleMissingKey m i x)
+onLeftMatched :: Applicative f => WhenMissing f k x z -> WhenMatched f k x y z
+onLeftMatched m = WhenMatched (\i x _ -> missingKey m i x)
 
-onRightMatched :: WhenMissing f k y z -> WhenMatched f k x y z
-onRightMatched m = WhenMatched (\i _ y -> simpleMissingKey m i y)
+onRightMatched :: Applicative f => WhenMissing f k y z -> WhenMatched f k x y z
+onRightMatched m = WhenMatched (\i _ y -> missingKey m i y)
 

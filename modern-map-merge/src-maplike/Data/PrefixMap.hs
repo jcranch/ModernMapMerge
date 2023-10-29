@@ -22,11 +22,10 @@ import Data.Traversable.WithIndex
 import Data.Witherable.WithIndex
 import Data.MergeTactics (WhenMissing(..),
                           WhenMatched(..),
+                          reindexMissing,
                           traverseMaybeMissing)
-import Data.MergeTactics.Reindex
 
 import Data.Maplike
-
 
 
 data PrefixMap m v = PrefixMap {
@@ -61,17 +60,17 @@ instance Maplike k m => Traversable (PrefixMap m) where
   traverse f = let
     g (PrefixMap a c) = liftA2 PrefixMap (traverse f a) (traverse g c)
     in g
-  
+
 instance Maplike k m => TraversableWithIndex [k] (PrefixMap m) where
   itraverse f (PrefixMap a c) = liftA2 PrefixMap (traverse (f []) a) (itraverse (\ x -> itraverse (f . (x:))) c)
-  
+
 instance Maplike k m => Filterable (PrefixMap m) where
   mapMaybe f = let
     inner (PrefixMap a c) = PrefixMap {
       content = f =<< a,
       children = mapMaybe (nonNull . inner) c }
     in inner
-  
+
 instance Maplike k m => FilterableWithIndex [k] (PrefixMap m) where
   imapMaybe f = let
     inner p (PrefixMap a c) = PrefixMap {
@@ -80,17 +79,17 @@ instance Maplike k m => FilterableWithIndex [k] (PrefixMap m) where
     in inner id
 
 instance Maplike k m => Witherable (PrefixMap m) where
-  
+
 instance Maplike k m => WitherableWithIndex [k] (PrefixMap m) where
-  
+
 
 instance Maplike k m => Maplike [k] (PrefixMap m) where
-  
+
   empty = PrefixMap Nothing empty
 
   null (PrefixMap Nothing x) = null x
   null (PrefixMap (Just _) _) = False
-  
+
   singleton [] x = PrefixMap (Just x) empty
   singleton (k:ks) x = PrefixMap Nothing . singleton k $ singleton ks x
 
@@ -101,28 +100,27 @@ instance Maplike k m => Maplike [k] (PrefixMap m) where
     j ks Nothing = fmap (singleton ks) <$> a Nothing
     j ks (Just m) = nonNull <$> go ks m
 
-    -- r :: [k] -> PrefixMap m v -> f (PrefixMap m v)
+    -- go :: [k] -> PrefixMap m v -> f (PrefixMap m v)
     go [] (PrefixMap h t) = flip PrefixMap t <$> a h
     go (k:ks) (PrefixMap h t) = PrefixMap h <$> alterF (j ks) k t
 
     in go
 
-  mergeA l r (WhenMatched b) = let
+  imergeA l r (WhenMatched b) = let
 
     onChildren p = let
-      tl k = fmap nonNull . runWhenMissing (reindexWithering (p . (k:)) l)
-      tr k = fmap nonNull . runWhenMissing (reindexWithering (p . (k:)) r)
-      fb k m1 m2 = nonNull <$> go (p . (k:)) m1 m2
-      in mergeA (traverseMaybeMissing tl) (traverseMaybeMissing tr) (WhenMatched fb)
+      tl c = fmap nonNull . runWhenMissing (reindexMissing (p . (c:)) l)
+      tr c = fmap nonNull . runWhenMissing (reindexMissing (p . (c:)) r)
+      fb c m1 m2 = nonNull <$> go (p . (c:)) m1 m2
+      in imergeA (traverseMaybeMissing tl) (traverseMaybeMissing tr) (WhenMatched fb)
+
     onContent p = let
       k = p []
-      tl = reindexWithering (const k) l
-      tr = reindexWithering (const k) r
+      tl = reindexMissing (const k) l
+      tr = reindexMissing (const k) r
       fb _ = b k
-      in mergeA tl tr (WhenMatched fb)
+      in imergeA tl tr (WhenMatched fb)
 
     go p (PrefixMap h1 t1) (PrefixMap h2 t2) = liftA2 PrefixMap (onContent p h1 h2) (onChildren p t1 t2)
-    
-    in go id
 
-  
+    in go id

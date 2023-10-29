@@ -72,27 +72,27 @@ alterF f x (ListMap a) = let
 
   g l Nothing = l
   g l (Just u) = ((x,u):l)
-  
+
   go [] = g [] <$> f Nothing
   go l@((y,v):l') = case compare x y of
     LT -> g l <$> f Nothing
     EQ -> g l' <$> f (Just v)
     GT -> ((y,v):) <$> go l'
-  
+
   in ListMap <$> go a
 
-mergeA  :: (Applicative f, Ord k)
+imergeA  :: (Applicative f, Ord k)
   => WhenMissing f k a c -- ^ What to do with keys in @m1@ but not @m2@
   -> WhenMissing f k b c -- ^ What to do with keys in @m2@ but not @m1@
   -> WhenMatched f k a b c -- ^ What to do with keys in both @m1@ and @m2@
   -> ListMap k a -- ^ Map @m1@
   -> ListMap k b -- ^ Map @m2@
   -> f (ListMap k c)
-mergeA onL onR onB (ListMap a1) (ListMap a2) = let
+imergeA onL onR onB (ListMap a1) (ListMap a2) = let
 
   maybeCons _ Nothing l = l
   maybeCons x (Just y) l = (x,y):l
-  
+
   go l1 [] = kvPairs <$> runWhenMissing onL (ListMap l1)
   go [] l2 = kvPairs <$> runWhenMissing onR (ListMap l2)
   go l1@((x,u):l1') l2@((y,v):l2') = case compare x y of
