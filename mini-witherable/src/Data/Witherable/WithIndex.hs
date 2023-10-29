@@ -47,7 +47,7 @@ module Data.Witherable.WithIndex (
 
 import Control.Applicative
 import Data.Foldable.WithIndex
-import Data.Functor.Identity
+import Data.Functor.Identity (Identity(..))
 import Data.Functor.WithIndex
 import Data.Proxy
 import Data.Traversable.WithIndex
@@ -144,4 +144,3 @@ instance (Alternative f, T.Traversable f) => Witherable (WrappedFoldable i f)
 -- useful.
 defaultiwither :: (Applicative f, Filterable t, TraversableWithIndex i t) => (i -> a -> f (Maybe b)) -> t a -> f (t b)
 defaultiwither f = fmap catMaybes . itraverse f
-
