@@ -15,11 +15,10 @@ import Prelude hiding (null)
 #else
 import Control.Applicative (liftA2)
 #endif
-import Data.Filterable.WithIndex
 import Data.Foldable.WithIndex
 import Data.Functor.WithIndex
 import Data.Traversable.WithIndex
-import Data.Witherable.WithIndex
+import Witherable
 import Data.MergeTactics (WhenMissing(..),
                           WhenMatched(..),
                           reindexMissing,

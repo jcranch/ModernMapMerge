@@ -10,8 +10,7 @@ module Data.IMaybe where
 import Data.Functor.WithIndex
 import Data.Foldable.WithIndex
 import Data.Traversable.WithIndex
-import Data.Filterable.WithIndex
-import Data.Witherable.WithIndex
+import Witherable
 
 
 -- | An @IMaybe k v@ may consist of a key-value pair, or may not.

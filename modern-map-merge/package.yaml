@@ -25,7 +25,7 @@ ghc-options:
 library:
   source-dirs:      src-modernmapmerge
   dependencies:
-    - mini-witherable
+    - witherable                      >= 0.4.2    && < 0.5
 
 internal-libraries:
 
@@ -33,18 +33,17 @@ internal-libraries:
     source-dirs:    src-listmap
     dependencies:
       - modernmapmerge
-      - mini-witherable
+      - witherable                    >= 0.4.2    && < 0.5
 
   maplike:
     source-dirs:    src-maplike
     dependencies:
       - modernmapmerge
-      - mini-witherable
+      - witherable                    >= 0.4.2    && < 0.5
 
   extra:
     source-dirs:    src-extra
     dependencies:
-      - mini-witherable
       - modernmapmerge
       - array                         >= 0.5.4.0  && < 0.6
       - data-default                  >= 0.7.1.1  && < 0.8
@@ -53,5 +52,6 @@ internal-libraries:
       - transformers                  >= 0.5.6.2  && < 0.7
       - unordered-containers          >= 0.2.16   && < 0.3
       - vector                        >= 0.12.3.1 && < 0.14
+      - witherable                    >= 0.4.2    && < 0.5
     ghc-options:
       - -fno-warn-orphans

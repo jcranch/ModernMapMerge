@@ -10,8 +10,7 @@ import Data.Functor.WithIndex
 import Data.Foldable.WithIndex
 import Data.Traversable.WithIndex
 
-import Data.Filterable.WithIndex
-import Data.Witherable.WithIndex
+import Witherable
 
 
 -- | If @n x@ has indices of type @i@, then @Reindexed i j n x@ has

@@ -26,8 +26,7 @@ import Control.Applicative (liftA2)
 import Data.Functor.WithIndex
 import Data.Foldable.WithIndex
 import Data.Traversable.WithIndex
-import Data.Filterable.WithIndex
-import Data.Witherable.WithIndex
+import Witherable
 
 
 newtype ICompose j i g f a = ICompose {

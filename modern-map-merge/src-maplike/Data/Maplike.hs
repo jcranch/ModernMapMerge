@@ -18,7 +18,7 @@ import qualified Data.Map.Strict as M
 import qualified Data.Map.Merge as M
 import Data.Maybe (isNothing)
 
-import Data.Witherable.WithIndex
+import Witherable
 import Data.MergeTactics        (WhenMissing,
                                  missingKey,
                                  dropMissing,
@@ -31,7 +31,7 @@ import Data.MergeTactics        (WhenMissing,
                                  reindexMatched)
 
 
-class WitherableWithIndex k m => Maplike k m | m -> k where
+class (FilterableWithIndex k m, WitherableWithIndex k m) => Maplike k m | m -> k where
 
   empty :: m v
 

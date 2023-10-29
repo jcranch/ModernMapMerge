@@ -19,7 +19,7 @@ import Data.Traversable.WithIndex
 -- This import allows us to define instances
 import qualified Control.Category
 
-import Data.Witherable.WithIndex
+import Witherable
 import Data.IMaybe
 import Data.MergeTactics.Reindex
 
@@ -27,7 +27,7 @@ import Data.MergeTactics.Reindex
 -- | A tactic for dealing with keys present in one map but not the
 -- other in merge algorithms.
 newtype WhenMissing f i x y = WhenMissing {
-  runWhenMissing :: forall n. WitherableWithIndex i n => n x -> f (n y)
+  runWhenMissing :: forall n. (FilterableWithIndex i n, WitherableWithIndex i n) => n x -> f (n y)
 }
 
 -- | Run a WhenMissing tactic on a single key
@@ -63,7 +63,7 @@ instance (Monad f)
 type SimpleWhenMissing = WhenMissing Identity
 
 -- | A variant of `runWhenMissing` specialised to @f = Identity@.
-runSimpleWhenMissing :: (WitherableWithIndex i n) => SimpleWhenMissing i x y -> n x -> n y
+runSimpleWhenMissing :: (FilterableWithIndex i n, WitherableWithIndex i n) => SimpleWhenMissing i x y -> n x -> n y
 runSimpleWhenMissing w = runIdentity . runWhenMissing w
 
 -- | A variant of `missingKey` specialised to @f = Identity@.
@@ -86,7 +86,7 @@ foldMissing f = WhenMissing (Const . foldMap f)
 -- | A `WhenMissing` tactic which drops all elements. This is often
 -- rapid: often consisting of returning an empty data structure.
 dropMissing :: Applicative f => WhenMissing f k x y
-dropMissing = WhenMissing (pure . flush)
+dropMissing = WhenMissing (pure . mapMaybe (const Nothing))
 
 -- | A `WhenMissing` tactic which keeps the data as is.
 preserveMissing :: Applicative f => WhenMissing f k x x
