@@ -1,3 +1,5 @@
+{-# LANGUAGE MultiParamTypeClasses #-}
+
 module Data.Trie.Extra where
 
 import Data.ByteString
@@ -10,7 +12,10 @@ import Witherable
 
 
 instance FunctorWithIndex ByteString Trie where
-  -- This one doesn't already exist
+  imap f = I.mapBy (\i -> Just . f i)
+  -- A dedicated implementation would probably be preferable
+  -- https://github.com/wrengr/bytestring-trie/pull/70
+{-
   imap f = let
     go _ Empty = Empty
     go q (Arc k Nothing t) = Arc k Nothing $ go (q +>! k) t
@@ -19,9 +24,11 @@ instance FunctorWithIndex ByteString Trie where
       in Arc k (Just $ f q' v) (go (fromStrict q') t)
     go q (Branch p m l r) = Branch p m (go q l) (go q r)
     in go Nil
-
+-}
+  
 instance FoldableWithIndex ByteString Trie where
-  ifoldl = I.foldlWithKey
+  -- Arguments come in a different order for I.foldlWithKey
+  ifoldl = I.foldlWithKey . flip
 
 instance TraversableWithIndex ByteString Trie where
   itraverse = I.traverseWithKey
