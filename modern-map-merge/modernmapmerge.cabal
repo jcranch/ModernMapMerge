@@ -83,8 +83,11 @@ library listmap
 
 library maplike
   exposed-modules:
+      Data.IntMap.Extra
+      Data.Map.Extra
       Data.Maplike
-      Data.PrefixMap
+      Data.Maplike.Branching
+      Data.Maplike.Prefix
   other-modules:
       Paths_modernmapmerge
   autogen-modules:

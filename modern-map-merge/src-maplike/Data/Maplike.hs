@@ -8,6 +8,7 @@ module Data.Maplike where
 
 import Prelude hiding (null)
 
+import Data.Bifunctor (first)
 import Data.Functor.Const (Const(..))
 import Data.Functor.Identity (Identity(..))
 import Data.IntMap (IntMap)
@@ -19,6 +20,8 @@ import qualified Data.Map.Merge as M
 import Data.Maybe (isNothing)
 
 import Witherable
+import qualified Data.Map.Extra as ME
+import qualified Data.IntMap.Extra as IE
 import Data.MergeTactics        (WhenMissing,
                                  missingKey,
                                  dropMissing,
@@ -44,6 +47,30 @@ class (FilterableWithIndex k m, WitherableWithIndex k m) => Maplike k m | m -> k
          -> k
          -> m v
          -> f (m v)
+
+  alter :: (Maybe v -> Maybe v) -> k -> m v -> m v
+  alter f k = runIdentity . alterF (Identity . f) k
+
+  insert :: k -> v -> m v -> m v
+  insert k v = alter (const $ Just v) k
+
+  minViewWithKey :: m v -> Maybe ((k, v), m v)
+
+  maxViewWithKey :: m v -> Maybe ((k, v), m v)
+
+  minView :: m v -> Maybe (v, m v)
+  minView = fmap (first snd) . minViewWithKey
+
+  maxView :: m v -> Maybe (v, m v)
+  maxView = fmap (first snd) . minViewWithKey
+
+  -- | A safer, more general version of `Data.Map.updateMinWithKey`:
+  -- change the minimum key, but if the map is empty, return `Nothing`
+  alterMinWithKeyA :: Functor f => (k -> v -> f (Maybe v)) -> m v -> Maybe (f (m v))
+
+  -- | A safer, more general version of `Data.Map.updateMaxWithKey`:
+  -- change the maximum key, but if the map is empty, return `Nothing`
+  alterMaxWithKeyA :: Functor f => (k -> v -> f (Maybe v)) -> m v -> Maybe (f (m v))
 
   -- Merge two data structures
   -- Some data structures can implement unindexed merging rather more
@@ -89,6 +116,7 @@ class (FilterableWithIndex k m, WitherableWithIndex k m) => Maplike k m | m -> k
           -> m b -- ^ Map @m2@
           -> f (m c)
 
+-- | A helper function that occurs all over the place
 nonNull :: Maplike k m => m v -> Maybe (m v)
 nonNull m
   | null m    = Nothing
@@ -99,6 +127,14 @@ instance Maplike () Maybe where
   null = isNothing
   singleton _ = Just
   alterF a _ m = a m
+  minViewWithKey Nothing = Nothing
+  minViewWithKey (Just x) = Just (((),x), Nothing)
+  maxViewWithKey Nothing = Nothing
+  maxViewWithKey (Just x) = Just (((),x), Nothing)
+  alterMinWithKeyA _ Nothing = Nothing
+  alterMinWithKeyA f (Just x) = Just (f () x)
+  alterMaxWithKeyA _ Nothing = Nothing
+  alterMaxWithKeyA f (Just x) = Just (f () x)
   imergeA _ _ _ Nothing Nothing = pure Nothing
   imergeA l _ _ (Just x) Nothing = missingKey l () x
   imergeA _ r _ Nothing (Just y) = missingKey r () y
@@ -109,6 +145,12 @@ instance Ord k => Maplike k (Map k) where
   null = M.null
   singleton = M.singleton
   alterF = M.alterF
+  minView = M.minView
+  maxView = M.maxView
+  minViewWithKey = M.minViewWithKey
+  maxViewWithKey = M.maxViewWithKey
+  alterMinWithKeyA = ME.alterMinWithKeyA
+  alterMaxWithKeyA = ME.alterMaxWithKeyA
   imergeA = M.mergeA
 
 instance Maplike Int IntMap where
@@ -116,6 +158,12 @@ instance Maplike Int IntMap where
   null = I.null
   singleton = I.singleton
   alterF = I.alterF
+  minView = I.minView
+  maxView = I.maxView
+  minViewWithKey = I.minViewWithKey
+  maxViewWithKey = I.maxViewWithKey
+  alterMinWithKeyA = IE.alterMinWithKeyA
+  alterMaxWithKeyA = IE.alterMaxWithKeyA
   imergeA = I.mergeA
 
 

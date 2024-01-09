@@ -7,7 +7,9 @@
       UndecidableInstances
   #-}
 
-module Data.PrefixMap where
+-- | Prefix maps: given a `Maplike` with keys @k@ we provide a Maplike
+-- with keys @[k]@.
+module Data.Maplike.Prefix where
 
 import Prelude hiding (null)
 
@@ -33,12 +35,12 @@ data PrefixMap m v = PrefixMap {
 } deriving (Functor)
 
 
-instance Maplike k m => FunctorWithIndex [k] (PrefixMap m) where
+instance FunctorWithIndex k m => FunctorWithIndex [k] (PrefixMap m) where
   imap f (PrefixMap h t) = let
     g r = imap (f . (r:))
     in PrefixMap (f [] <$> h) (imap g t)
 
-instance Maplike k m => Foldable (PrefixMap m) where
+instance Foldable m => Foldable (PrefixMap m) where
   foldMap f = let
     g (PrefixMap a c) = let
       h Nothing = id
@@ -46,7 +48,7 @@ instance Maplike k m => Foldable (PrefixMap m) where
       in h a $ foldMap g c
     in g
 
-instance Maplike k m => FoldableWithIndex [k] (PrefixMap m) where
+instance FoldableWithIndex k m => FoldableWithIndex [k] (PrefixMap m) where
   ifoldMap f (PrefixMap a c) = let
     h Nothing = id
     h (Just x) = mappend (f [] x)
@@ -55,13 +57,13 @@ instance Maplike k m => FoldableWithIndex [k] (PrefixMap m) where
       in ifoldMap g c
     in h a r
 
-instance Maplike k m => Traversable (PrefixMap m) where
+instance Traversable m => Traversable (PrefixMap m) where
   traverse f = let
     g (PrefixMap a c) = liftA2 PrefixMap (traverse f a) (traverse g c)
     in g
 
-instance Maplike k m => TraversableWithIndex [k] (PrefixMap m) where
-  itraverse f (PrefixMap a c) = liftA2 PrefixMap (traverse (f []) a) (itraverse (\ x -> itraverse (f . (x:))) c)
+instance TraversableWithIndex k m => TraversableWithIndex [k] (PrefixMap m) where
+  itraverse f (PrefixMap a c) = liftA2 PrefixMap (traverse (f []) a) (itraverse (\x -> itraverse (f . (x:))) c)
 
 instance Maplike k m => Filterable (PrefixMap m) where
   mapMaybe f = let
@@ -104,6 +106,36 @@ instance Maplike k m => Maplike [k] (PrefixMap m) where
     go (k:ks) (PrefixMap h t) = PrefixMap h <$> alterF (j ks) k t
 
     in go
+
+  minViewWithKey (PrefixMap (Just x) m) = Just (([], x), PrefixMap Nothing m)
+  minViewWithKey (PrefixMap Nothing m)  = let
+    g _ Nothing           = error "minViewWithKey: unexpected empty part"
+    g x (Just ((k,v),m')) = ((x:k,v), nonNull m')
+    in fmap (PrefixMap Nothing) <$> alterMinWithKeyA (\x -> g x . minViewWithKey) m
+
+  maxViewWithKey (PrefixMap a m) = let
+    g _ Nothing           = error "maxViewWithKey: unexpected empty part"
+    g x (Just ((k,v),m')) = ((x:k,v), nonNull m')
+    h x = (([], x), PrefixMap Nothing m)
+    in case alterMaxWithKeyA (\x -> g x . maxViewWithKey) m of
+      Just u -> Just (PrefixMap a <$> u)
+      Nothing -> h <$> a
+
+  alterMinWithKeyA f (PrefixMap (Just x) m) = let
+    h y = PrefixMap y m
+    in Just (h <$> f [] x)
+  alterMinWithKeyA f (PrefixMap Nothing m) = let
+    g Nothing  = error "alterMinWithKeyA: unexpected empty part"
+    g (Just u) = nonNull <$> u
+    in fmap (PrefixMap Nothing) <$> alterMinWithKeyA (\x -> g . alterMinWithKeyA (f . (x:))) m
+
+  alterMaxWithKeyA f (PrefixMap a m) = let
+    g Nothing  = error "alterMaxWithKeyA: unexpected empty part"
+    g (Just u) = nonNull <$> u
+    h x = PrefixMap x m
+    in case alterMaxWithKeyA (\x -> g . alterMaxWithKeyA (f . (x:))) m of
+      Just u  -> Just (PrefixMap a <$> u)
+      Nothing -> fmap h . f [] <$> a
 
   imergeA l r (WhenMatched b) = let
 
