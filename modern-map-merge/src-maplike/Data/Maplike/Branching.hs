@@ -27,6 +27,11 @@ import qualified Data.Map.Strict as M
 import Data.Maplike
 
 
+-- TODO This data structure kinda sucks; we have the possibility of
+-- useless branches where all we're doing is imposing a "Nothing",
+-- which is the default. What would be more apposite?
+
+
 -- | Insert or not depending on Maybe
 maybeInsert :: Maplike k m => k -> Maybe v -> m v -> m v
 maybeInsert _ Nothing  = id
@@ -96,6 +101,9 @@ instance (Maplike (Maybe k) m, Ord r) => FilterableWithIndex (Map r k) (Branchin
 instance (Maplike (Maybe k) m, Ord r) => Witherable (Branching r m) where
 
 instance (Maplike (Maybe k) m, Ord r) => WitherableWithIndex (Map r k) (Branching r m) where
+  iwither f = let
+    go u (Branching h t) = liftA2 Branching (wither (f u) h) (wither _ t)
+    in go M.empty
 
 instance (Maplike (Maybe k) m, Ord r) => Maplike (Map r k) (Branching r m) where
 

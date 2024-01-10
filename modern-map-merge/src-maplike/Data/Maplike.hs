@@ -212,9 +212,15 @@ ipairBy f u v = let
   in getConst $ m u v
 
 
-data OnEither k l m n x =
-  OnEitherL (m x) |
-  OnEitherR (n x)
+data OnMaybe k m v = OnMaybe {
+  onNothing :: Maybe v,
+  onJust :: m v
+} deriving (Eq, Ord, Read, Show)
+
+
+data OnEither k l m n v =
+  OnEitherL (m v) |
+  OnEitherR (n v)
   deriving (Eq, Ord, Read, Show)
 
 {-
@@ -231,3 +237,9 @@ data OnEither k l m n x =
 
 instance (Maplike k m, Maplike l n) => Maplike (Either k l) (OnEither k l m n) where
 -}
+
+
+
+newtype OnPair k l m n v = OnPair {
+  getPair :: m (n v)
+} deriving (Eq, Ord, Read, Show)
