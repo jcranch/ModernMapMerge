@@ -1,16 +1,21 @@
 {-# LANGUAGE
       FlexibleInstances,
       FunctionalDependencies,
-      MultiParamTypeClasses
+      MultiParamTypeClasses,
+      TupleSections,
+      TypeOperators
   #-}
 
 module Data.Maplike where
 
+-- TODO Replicate more standard map functionality
+
 import Prelude hiding (null)
 
-import Data.Bifunctor (first)
+-- import Data.Foldable.WithIndex (FoldableWithIndex)
 import Data.Functor.Const (Const(..))
 import Data.Functor.Identity (Identity(..))
+-- import Data.Functor.WithIndex (FunctorWithIndex)
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as I
 import qualified Data.IntMap.Merge as I
@@ -18,8 +23,11 @@ import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
 import qualified Data.Map.Merge as M
 import Data.Maybe (isNothing)
+-- import Data.Traversable.WithIndex (TraversableWithIndex)
 
-import Witherable
+import Witherable (FilterableWithIndex,
+                   WitherableWithIndex)
+
 import qualified Data.Map.Extra as ME
 import qualified Data.IntMap.Extra as IE
 import Data.MergeTactics        (WhenMissing,
@@ -55,22 +63,30 @@ class (FilterableWithIndex k m, WitherableWithIndex k m) => Maplike k m | m -> k
   insert k v = alter (const $ Just v) k
 
   minViewWithKey :: m v -> Maybe ((k, v), m v)
+  minViewWithKey = alterMinWithKeyF (\k v -> ((k, v), Nothing))
 
   maxViewWithKey :: m v -> Maybe ((k, v), m v)
+  maxViewWithKey = alterMaxWithKeyF (\k v -> ((k, v), Nothing))
 
   minView :: m v -> Maybe (v, m v)
-  minView = fmap (first snd) . minViewWithKey
+  minView = alterMinF (,Nothing)
 
   maxView :: m v -> Maybe (v, m v)
-  maxView = fmap (first snd) . minViewWithKey
+  maxView = alterMaxF (,Nothing)
+
+  alterMinF :: Functor f => (v -> f (Maybe v)) -> m v -> Maybe (f (m v))
+  alterMinF = alterMinWithKeyF . const
+
+  alterMaxF :: Functor f => (v -> f (Maybe v)) -> m v -> Maybe (f (m v))
+  alterMaxF = alterMaxWithKeyF . const
 
   -- | A safer, more general version of `Data.Map.updateMinWithKey`:
   -- change the minimum key, but if the map is empty, return `Nothing`
-  alterMinWithKeyA :: Functor f => (k -> v -> f (Maybe v)) -> m v -> Maybe (f (m v))
+  alterMinWithKeyF :: Functor f => (k -> v -> f (Maybe v)) -> m v -> Maybe (f (m v))
 
   -- | A safer, more general version of `Data.Map.updateMaxWithKey`:
   -- change the maximum key, but if the map is empty, return `Nothing`
-  alterMaxWithKeyA :: Functor f => (k -> v -> f (Maybe v)) -> m v -> Maybe (f (m v))
+  alterMaxWithKeyF :: Functor f => (k -> v -> f (Maybe v)) -> m v -> Maybe (f (m v))
 
   -- Merge two data structures
   -- Some data structures can implement unindexed merging rather more
@@ -131,10 +147,10 @@ instance Maplike () Maybe where
   minViewWithKey (Just x) = Just (((),x), Nothing)
   maxViewWithKey Nothing = Nothing
   maxViewWithKey (Just x) = Just (((),x), Nothing)
-  alterMinWithKeyA _ Nothing = Nothing
-  alterMinWithKeyA f (Just x) = Just (f () x)
-  alterMaxWithKeyA _ Nothing = Nothing
-  alterMaxWithKeyA f (Just x) = Just (f () x)
+  alterMinWithKeyF _ Nothing = Nothing
+  alterMinWithKeyF f (Just x) = Just (f () x)
+  alterMaxWithKeyF _ Nothing = Nothing
+  alterMaxWithKeyF f (Just x) = Just (f () x)
   imergeA _ _ _ Nothing Nothing = pure Nothing
   imergeA l _ _ (Just x) Nothing = missingKey l () x
   imergeA _ r _ Nothing (Just y) = missingKey r () y
@@ -149,8 +165,8 @@ instance Ord k => Maplike k (Map k) where
   maxView = M.maxView
   minViewWithKey = M.minViewWithKey
   maxViewWithKey = M.maxViewWithKey
-  alterMinWithKeyA = ME.alterMinWithKeyA
-  alterMaxWithKeyA = ME.alterMaxWithKeyA
+  alterMinWithKeyF = ME.alterMinWithKeyF
+  alterMaxWithKeyF = ME.alterMaxWithKeyF
   imergeA = M.mergeA
 
 instance Maplike Int IntMap where
@@ -162,8 +178,8 @@ instance Maplike Int IntMap where
   maxView = I.maxView
   minViewWithKey = I.minViewWithKey
   maxViewWithKey = I.maxViewWithKey
-  alterMinWithKeyA = IE.alterMinWithKeyA
-  alterMaxWithKeyA = IE.alterMaxWithKeyA
+  alterMinWithKeyF = IE.alterMinWithKeyF
+  alterMaxWithKeyF = IE.alterMaxWithKeyF
   imergeA = I.mergeA
 
 
@@ -196,4 +212,22 @@ ipairBy f u v = let
   in getConst $ m u v
 
 
--- TODO There are many more standard functions
+data OnEither k l m n x =
+  OnEitherL (m x) |
+  OnEitherR (n x)
+  deriving (Eq, Ord, Read, Show)
+
+{-
+  Functor,
+  FunctorWithIndex (Either k l),
+  Foldable,
+  FoldableWithIndex (Either k l),
+  Traversable,
+  TraversableWithIndex (Either k l),
+  Filterable,
+  FilterableWithIndex (Either k l),
+  Witherable,
+  WitherableWithIndex (Either k l))
+
+instance (Maplike k m, Maplike l n) => Maplike (Either k l) (OnEither k l m n) where
+-}

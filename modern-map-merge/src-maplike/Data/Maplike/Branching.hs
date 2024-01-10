@@ -6,9 +6,6 @@
   #-}
 
 
--- TODO do nonNull on the outer as well as the inner maps
-
-
 -- | A variant of prefix maps: given a `Maplike` with keys `Maybe`
 -- @k@, we provide a Maplike with keys `Map` @r k@.
 module Data.Maplike.Branching where
@@ -64,7 +61,7 @@ instance (FoldableWithIndex (Maybe k) m, Ord r) => FoldableWithIndex (Map r k) (
       onT (r, m) = ifoldMap (\z -> go (maybeInsert r z u)) m
       in foldMap (f u) h <> foldMap onT t
     in go M.empty
-  
+
   ifoldr f = let
     go u x (Branching h t) = let
       x' = case t of
@@ -86,6 +83,27 @@ instance (TraversableWithIndex (Maybe k) m, Ord r) => TraversableWithIndex (Map 
     go u (Branching h t) = liftA2 Branching (traverse (f u) h) (traverse (itraverse (\r -> itraverse (\z -> go (maybeInsert r z u)))) t)
     in go M.empty
 
-instance Maplike (Maybe k) m => Filterable (Branching r m) where
+instance (Maplike (Maybe k) m, Ord r) => Filterable (Branching r m) where
   mapMaybe f = let
-    inner (Branching h t) = Branching (f =<< h) (mapMaybe
+    go (Branching h t) = Branching (f =<< h) (mapMaybe (traverse (nonNull . mapMaybe (nonNull . go))) t)
+    in go
+
+instance (Maplike (Maybe k) m, Ord r) => FilterableWithIndex (Map r k) (Branching r m) where
+  imapMaybe f = let
+    go u (Branching h t) = Branching (f u =<< h) (mapMaybe (itraverse (\r -> nonNull . imapMaybe (\z -> nonNull . go (maybeInsert r z u)))) t)
+    in go M.empty
+
+instance (Maplike (Maybe k) m, Ord r) => Witherable (Branching r m) where
+
+instance (Maplike (Maybe k) m, Ord r) => WitherableWithIndex (Map r k) (Branching r m) where
+
+instance (Maplike (Maybe k) m, Ord r) => Maplike (Map r k) (Branching r m) where
+
+  empty = Branching Nothing Nothing
+
+  null (Branching Nothing Nothing) = True
+  null _                           = False
+
+  singleton u z = case M.minViewWithKey u of
+    Nothing           -> Branching (Just z) Nothing
+    (Just ((k,v),u')) -> Branching Nothing  (Just (k, singleton (Just v) (singleton u' z)))
