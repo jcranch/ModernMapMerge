@@ -21,13 +21,9 @@ import Data.Functor.WithIndex
 import Data.Kind (Type)
 import Data.Traversable.WithIndex
 import Witherable
-{-
-import Data.MergeTactics (WhenMissing(..),
-                          WhenMatched(..),
-                          reindexMissing,
-                          traverseMaybeMissing)
 
--}
+import Data.MergeTactics
+
 import Data.Maplike
 
 
@@ -125,15 +121,31 @@ instance (Maplike r i, Maplike r m, Maplike s n) => Maplike (i s) (Branching r s
       g (Just b) = insert u' v b
       in Branching h $ alter (Just . g) p t
 
-  alterMinF = _
+  alterMinF f (Branching h t) = case alterMinF f h of
+    Nothing -> fmap (Branching h) <$> alterMinF (fmap nonNull . _) t
+    Just h' -> Just (flip Branching t <$> h')
 
-  alterMaxF = _
+  alterMaxF f (Branching h t) = _
 
-  alterMinWithKeyF = _
+  alterMinWithKeyF f (Branching h t) = _
 
-  alterMaxWithKeyF = _
+  alterMaxWithKeyF f (Branching h t) = _
+
+  merge l r b = _
+
+  mergeA l r b = _
+
+  imerge l r b = _
 
   imergeA l r b = let
     go u (Branching h1 t1) (Branching h2 t2) = let
-      in liftA2 Branching (imergeA _ _ _ h1 h2) (imergeA _ _ _ t1 t2)
+      onH = imergeA
+              (reindexMissing (const u) l)
+              (reindexMissing (const u) r)
+              (reindexMatched (const u) b)
+      onT = imergeA
+              (traverseMaybeMissing (\(k,v) -> fmap nonNull . runWhenMissing (reindexMissing (union u) l)))
+              (traverseMaybeMissing (\(k,v) -> fmap nonNull . runWhenMissing (reindexMissing (union u) r)))
+              (WhenMatched (\(k,v) m1 m2 -> nonNull <$> go (insert k v u) m1 m2))
+      in liftA2 Branching (onH h1 h2) (onT t1 t2)
     in go empty
