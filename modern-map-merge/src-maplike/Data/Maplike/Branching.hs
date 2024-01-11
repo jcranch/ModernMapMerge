@@ -61,6 +61,9 @@ deriving instance (Ord v,
 instance (Maplike r i, FunctorWithIndex r m, FunctorWithIndex s n) => FunctorWithIndex (i s) (Branching r s i m n) where
 
 
+instance (Maplike r i, Maplike r m, Maplike r n) => Maplike (i s) (Branching r s i m n) where
+
+
 {-
 
 

@@ -10,7 +10,7 @@ module Data.Maplike where
 
 -- TODO Replicate more standard map functionality
 
-import Prelude hiding (null)
+import Prelude hiding (lookup, null)
 
 import Data.Bifunctor
 import Data.Foldable.WithIndex (FoldableWithIndex(..))
@@ -52,6 +52,9 @@ class (FilterableWithIndex k m, WitherableWithIndex k m) => Maplike k m | m -> k
   null :: m v -> Bool
 
   singleton :: k -> v -> m v
+
+  lookup :: k -> m v -> Maybe v
+  lookup k = getConst . alterF Const k
 
   alterF :: (Functor f)
          => (Maybe v -> f (Maybe v))
@@ -260,6 +263,9 @@ instance Maplike k m => Maplike (Maybe k) (OnMaybe k m) where
   singleton Nothing  x = OnMaybe (Just x) empty
   singleton (Just a) x = OnMaybe Nothing $ singleton a x
 
+  lookup Nothing  (OnMaybe x _) = x
+  lookup (Just z) (OnMaybe _ u) = lookup z u
+
   alterF f Nothing  (OnMaybe x u) = flip OnMaybe u <$> f x
   alterF f (Just a) (OnMaybe x u) = OnMaybe x <$> alterF f a u
 
@@ -276,33 +282,112 @@ instance Maplike k m => Maplike (Maybe k) (OnMaybe k m) where
   maxViewWithKey (OnMaybe x u) = case maxViewWithKey u of
     Just ((k, y), u') -> Just ((Just k, y), OnMaybe x u')
     Nothing -> case x of
-      Just y -> Just ((Nothing, y), OnMaybe Nothing u)
+      Just y  -> Just ((Nothing, y), OnMaybe Nothing u)
       Nothing -> Nothing
 
-  alterMinWithKeyF = _
+  alterMinWithKeyF f (OnMaybe x u) = case x of
+    Just y  -> Just . fmap (flip OnMaybe u) $ f Nothing y
+    Nothing -> fmap (fmap (OnMaybe x)) $ alterMinWithKeyF (f . Just) u
 
-data OnEither k l m n v =
-  OnEitherL (m v) |
-  OnEitherR (n v)
-  deriving (Eq, Ord, Read, Show)
+  alterMaxWithKeyF f (OnMaybe x u) = case alterMaxWithKeyF (f . Just) u of
+    Just u' -> Just (OnMaybe x <$> u')
+    Nothing -> case x of
+      Just y  -> Just (flip OnMaybe u <$> f Nothing y)
+      Nothing -> Nothing
 
-{-
-  Functor,
-  FunctorWithIndex (Either k l),
-  Foldable,
-  FoldableWithIndex (Either k l),
-  Traversable,
-  TraversableWithIndex (Either k l),
-  Filterable,
-  FilterableWithIndex (Either k l),
-  Witherable,
-  WitherableWithIndex (Either k l))
+  imergeA l r b (OnMaybe x u) (OnMaybe y v) = let
+    z = imergeA (reindexMissing (const Nothing) l) (reindexMissing (const Nothing) r) (reindexMatched (const Nothing) b) x y
+    w = imergeA (reindexMissing Just l) (reindexMissing Just r) (reindexMatched Just b) u v
+    in liftA2 OnMaybe z w
+
+
+data OnEither k l m n v = OnEither {
+  onLeft  :: m v,
+  onRight :: n v
+} deriving (Eq, Ord, Read, Show)
+
+instance (Functor m, Functor n) => Functor (OnEither k l m n) where
+  fmap f (OnEither m n) = OnEither (fmap f m) (fmap f n)
+
+instance (FunctorWithIndex k m, FunctorWithIndex l n) => FunctorWithIndex (Either k l) (OnEither k l m n) where
+  imap f (OnEither m n) = OnEither (imap (f . Left) m) (imap (f . Right) n)
+
+instance (Foldable m, Foldable n) => Foldable (OnEither k l m n) where
+  foldMap f (OnEither m n) = foldMap f m <> foldMap f n
+  foldr f z (OnEither m n) = foldr f (foldr f z n) m
+
+instance (FoldableWithIndex k m, FoldableWithIndex l n) => FoldableWithIndex (Either k l) (OnEither k l m n) where
+  ifoldMap f (OnEither m n) = ifoldMap (f . Left) m <> ifoldMap (f . Right) n
+  ifoldr f z (OnEither m n) = ifoldr (f . Left) (ifoldr (f . Right) z n) m
+
+instance (Traversable m, Traversable n) => Traversable (OnEither k l m n) where
+  traverse f (OnEither m n) = liftA2 OnEither (traverse f m) (traverse f n)
+
+instance (TraversableWithIndex k m, TraversableWithIndex l n) => TraversableWithIndex (Either k l) (OnEither k l m n) where
+  itraverse f (OnEither m n) = liftA2 OnEither (itraverse (f . Left) m) (itraverse (f . Right) n)
+
+instance (Filterable m, Filterable n) => Filterable (OnEither k l m n) where
+  mapMaybe f (OnEither m n) = OnEither (mapMaybe f m) (mapMaybe f n)
+
+instance (FilterableWithIndex k m, FilterableWithIndex l n) => FilterableWithIndex (Either k l) (OnEither k l m n) where
+  imapMaybe f (OnEither m n) = OnEither (imapMaybe (f . Left) m) (imapMaybe (f . Right) n)
+
+instance (Witherable m, Witherable n) => Witherable (OnEither k l m n) where
+  wither f (OnEither m n) = liftA2 OnEither (wither f m) (wither f n)
+
+instance (WitherableWithIndex k m, WitherableWithIndex l n) => WitherableWithIndex (Either k l) (OnEither k l m n) where
+  iwither f (OnEither m n) = liftA2 OnEither (iwither (f . Left) m) (iwither (f . Right) n)
 
 instance (Maplike k m, Maplike l n) => Maplike (Either k l) (OnEither k l m n) where
--}
 
 
 
 newtype OnPair k l m n v = OnPair {
   getPair :: m (n v)
 } deriving (Eq, Ord, Read, Show)
+
+instance (Functor m, Functor n) => Functor (OnPair k l m n) where
+  fmap f (OnPair m) = OnPair $ fmap (fmap f) m
+
+instance (FunctorWithIndex k m, FunctorWithIndex l n) => FunctorWithIndex (k,l) (OnPair k l m n) where
+  imap f (OnPair m) = OnPair $ imap (\k -> imap (f . (k,))) m
+
+instance (Foldable m, Foldable n) => Foldable (OnPair k l m n) where
+  foldMap f (OnPair m) = foldMap (foldMap f) m
+  foldr f z (OnPair m) = foldr (flip (foldr f)) z m
+
+instance (FoldableWithIndex k m, FoldableWithIndex l n) => FoldableWithIndex (k,l) (OnPair k l m n) where
+  ifoldMap f (OnPair m) = ifoldMap (\k -> ifoldMap (f . (k,))) m
+  ifoldr f z (OnPair m) = ifoldr (\k -> flip (ifoldr (f . (k,)))) z m
+
+instance (Traversable m, Traversable n) => Traversable (OnPair k l m n) where
+  traverse f (OnPair m) = OnPair <$> traverse (traverse f) m
+
+instance (TraversableWithIndex k m, TraversableWithIndex l n) => TraversableWithIndex (k,l) (OnPair k l m n) where
+  itraverse f (OnPair m) = OnPair <$> itraverse (\k -> itraverse (f . (k,))) m
+
+instance (Filterable m, Maplike l n) => Filterable (OnPair k l m n) where
+  mapMaybe f (OnPair m) = OnPair $ mapMaybe (nonNull . mapMaybe f) m
+
+instance (FilterableWithIndex k m, Maplike l n) => FilterableWithIndex (k,l) (OnPair k l m n) where
+  imapMaybe f (OnPair m) = OnPair $ imapMaybe (\k -> nonNull . imapMaybe (f . (k,))) m
+
+instance (Witherable m, Maplike l n) => Witherable (OnPair k l m n) where
+  wither f (OnPair m) = OnPair <$> wither (fmap nonNull . wither f) m
+
+instance (WitherableWithIndex k m, Maplike l n) => WitherableWithIndex (k,l) (OnPair k l m n) where
+  iwither f (OnPair m) = OnPair <$> iwither (\k -> fmap nonNull . iwither (f . (k,))) m
+
+instance (Maplike k m, Maplike l n) => Maplike (k,l) (OnPair k l m n) where
+
+  empty = OnPair empty
+
+  null (OnPair m) = null m
+
+  singleton (k,l) v = OnPair . singleton k $ singleton l v
+
+  alterF f (k,l) (OnPair m) = let
+    g Nothing  = let
+      in fmap (fmap (singleton l)) $ f Nothing
+    g (Just n) = nonNull <$> alterF f l n
+    in OnPair <$> alterF g k m
