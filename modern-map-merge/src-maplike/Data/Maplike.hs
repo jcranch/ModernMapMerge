@@ -33,16 +33,7 @@ import Witherable (Filterable(..),
 
 import qualified Data.Map.Extra as ME
 import qualified Data.IntMap.Extra as IE
-import Data.MergeTactics        (WhenMissing,
-                                 missingKey,
-                                 dropMissing,
-                                 preserveMissing,
-                                 reindexMissing,
-                                 WhenMatched(..),
-                                 preserveLeftMatched,
-                                 zipWithMatched,
-                                 zipWithAMatched,
-                                 reindexMatched)
+import Data.MergeTactics
 
 
 class (FilterableWithIndex k m, WitherableWithIndex k m) => Maplike k m | m -> k where
@@ -148,11 +139,18 @@ instance Maplike () Maybe where
   empty = Nothing
   null = isNothing
   singleton _ = Just
+  lookup _ m = m
   alterF a _ m = a m
+  alter a _ = a
+  insert _ a _ = Just a
   minViewWithKey Nothing = Nothing
   minViewWithKey (Just x) = Just (((),x), Nothing)
   maxViewWithKey Nothing = Nothing
   maxViewWithKey (Just x) = Just (((),x), Nothing)
+  minView = fmap (,Nothing)
+  maxView = fmap (,Nothing)
+  alterMinF = fmap
+  alterMaxF = fmap
   alterMinWithKeyF _ Nothing = Nothing
   alterMinWithKeyF f (Just x) = Just (f () x)
   alterMaxWithKeyF _ Nothing = Nothing
@@ -166,7 +164,10 @@ instance Ord k => Maplike k (Map k) where
   empty = M.empty
   null = M.null
   singleton = M.singleton
+  lookup = M.lookup
   alterF = M.alterF
+  alter = M.alter
+  insert = M.insert
   minView = M.minView
   maxView = M.maxView
   minViewWithKey = M.minViewWithKey
@@ -179,7 +180,10 @@ instance Maplike Int IntMap where
   empty = I.empty
   null = I.null
   singleton = I.singleton
+  lookup = I.lookup
   alterF = I.alterF
+  alter = I.alter
+  insert = I.insert
   minView = I.minView
   maxView = I.maxView
   minViewWithKey = I.minViewWithKey
@@ -285,15 +289,50 @@ instance Maplike k m => Maplike (Maybe k) (OnMaybe k m) where
       Just y  -> Just ((Nothing, y), OnMaybe Nothing u)
       Nothing -> Nothing
 
+  minView (OnMaybe x u) = case x of
+    Just y  -> Just (y, OnMaybe Nothing u)
+    Nothing -> fmap (OnMaybe x) <$> minView u
+
+  maxView (OnMaybe x u) = case maxView u of
+    Just (y, u') -> Just (y, OnMaybe x u')
+    Nothing -> case x of
+      Just y  -> Just (y, OnMaybe Nothing u)
+      Nothing -> Nothing
+
+  alterMinF f (OnMaybe x u) = case x of
+    Just y  -> Just . fmap (flip OnMaybe u) $ f y
+    Nothing -> fmap (OnMaybe x) <$> alterMinF f u
+
+  alterMaxF f (OnMaybe x u) = case alterMaxF f u of
+    Just u' -> Just (OnMaybe x <$> u')
+    Nothing -> case x of
+      Just y  -> Just (flip OnMaybe u <$> f y)
+      Nothing -> Nothing
+
   alterMinWithKeyF f (OnMaybe x u) = case x of
     Just y  -> Just . fmap (flip OnMaybe u) $ f Nothing y
-    Nothing -> fmap (fmap (OnMaybe x)) $ alterMinWithKeyF (f . Just) u
+    Nothing -> fmap (OnMaybe x) <$> alterMinWithKeyF (f . Just) u
 
   alterMaxWithKeyF f (OnMaybe x u) = case alterMaxWithKeyF (f . Just) u of
     Just u' -> Just (OnMaybe x <$> u')
     Nothing -> case x of
       Just y  -> Just (flip OnMaybe u <$> f Nothing y)
       Nothing -> Nothing
+
+  merge l r b (OnMaybe x u) (OnMaybe y v) = let
+    z = merge l r b x y
+    w = merge l r b u v
+    in OnMaybe z w
+
+  mergeA l r b (OnMaybe x u) (OnMaybe y v) = let
+    z = mergeA l r b x y
+    w = mergeA l r b u v
+    in liftA2 OnMaybe z w
+
+  imerge l r b (OnMaybe x u) (OnMaybe y v) = let
+    z = imerge (reindexMissing (const Nothing) l) (reindexMissing (const Nothing) r) (reindexMatched (const Nothing) b) x y
+    w = imerge (reindexMissing Just l) (reindexMissing Just r) (reindexMatched Just b) u v
+    in OnMaybe z w
 
   imergeA l r b (OnMaybe x u) (OnMaybe y v) = let
     z = imergeA (reindexMissing (const Nothing) l) (reindexMissing (const Nothing) r) (reindexMatched (const Nothing) b) x y
@@ -340,6 +379,74 @@ instance (WitherableWithIndex k m, WitherableWithIndex l n) => WitherableWithInd
 
 instance (Maplike k m, Maplike l n) => Maplike (Either k l) (OnEither k l m n) where
 
+  empty = OnEither empty empty
+
+  null (OnEither m n) = null m && null n
+
+  singleton (Left x)  y = OnEither (singleton x y) empty
+  singleton (Right x) y = OnEither empty (singleton x y)
+
+  lookup (Left x)  (OnEither m _) = lookup x m
+  lookup (Right x) (OnEither _ n) = lookup x n
+
+  minViewWithKey (OnEither m n) = case minViewWithKey m of
+    Just ((k,v),m') -> Just ((Left k, v), OnEither m' n)
+    Nothing         -> case minViewWithKey n of
+      Just ((k,v),n') -> Just ((Right k, v), OnEither m n')
+      Nothing         -> Nothing
+
+  maxViewWithKey (OnEither m n) = case maxViewWithKey n of
+    Just ((k,v),n') -> Just ((Right k, v), OnEither m n')
+    Nothing         -> case maxViewWithKey m of
+      Just ((k,v),m') -> Just ((Left k, v), OnEither m' n)
+      Nothing         -> Nothing
+
+  minView (OnEither m n) = case minView m of
+    Just (v,m') -> Just (v, OnEither m' n)
+    Nothing     -> case minView n of
+      Just (v,n') -> Just (v, OnEither m n')
+      Nothing     -> Nothing
+
+  maxView (OnEither m n) = case maxView n of
+    Just (v,n') -> Just (v, OnEither m n')
+    Nothing -> case maxView m of
+      Just (v,m') -> Just (v, OnEither m' n)
+      Nothing     -> Nothing
+
+  alterF f (Left x) (OnEither m n) = flip OnEither n <$> alterF f x m
+  alterF f (Right x) (OnEither m n) = OnEither m <$> alterF f x n
+
+  alter f (Left x) (OnEither m n) = flip OnEither n $ alter f x m
+  alter f (Right x) (OnEither m n) = OnEither m $ alter f x n
+
+  alterMinWithKeyF f (OnEither m n) = case alterMinWithKeyF (f . Left) m of
+    Just u -> Just (flip OnEither n <$> u)
+    Nothing -> fmap (OnEither m) <$> alterMinWithKeyF (f . Right) n
+
+  alterMaxWithKeyF f (OnEither m n) = case alterMaxWithKeyF (f . Right) n of
+    Just u -> Just (OnEither m <$> u)
+    Nothing -> fmap (flip OnEither n) <$> alterMinWithKeyF (f . Left) m
+
+  merge l r b (OnEither m1 n1) (OnEither m2 n2) = let
+    m = merge l r b m1 m2
+    n = merge l r b n1 n2
+    in OnEither m n
+
+  mergeA l r b (OnEither m1 n1) (OnEither m2 n2) = let
+    m = mergeA l r b m1 m2
+    n = mergeA l r b n1 n2
+    in liftA2 OnEither m n
+
+  imerge l r b (OnEither m1 n1) (OnEither m2 n2) = let
+    m = imerge (reindexMissing Left l) (reindexMissing Left r) (reindexMatched Left b) m1 m2
+    n = imerge (reindexMissing Right l) (reindexMissing Right r) (reindexMatched Right b) n1 n2
+    in OnEither m n
+
+  imergeA l r b (OnEither m1 n1) (OnEither m2 n2) = let
+    m = imergeA (reindexMissing Left l) (reindexMissing Left r) (reindexMatched Left b) m1 m2
+    n = imergeA (reindexMissing Right l) (reindexMissing Right r) (reindexMatched Right b) n1 n2
+    in liftA2 OnEither m n
+    
 
 
 newtype OnPair k l m n v = OnPair {
@@ -387,7 +494,55 @@ instance (Maplike k m, Maplike l n) => Maplike (k,l) (OnPair k l m n) where
   singleton (k,l) v = OnPair . singleton k $ singleton l v
 
   alterF f (k,l) (OnPair m) = let
-    g Nothing  = let
-      in fmap (fmap (singleton l)) $ f Nothing
+    g Nothing  = fmap (fmap (singleton l)) $ f Nothing
     g (Just n) = nonNull <$> alterF f l n
     in OnPair <$> alterF g k m
+
+  alter f (k,l) (OnPair m) = let
+    g Nothing  = fmap (singleton l) $ f Nothing
+    g (Just n) = nonNull $ alter f l n
+    in OnPair $ alter g k m
+
+  alterMinWithKeyF f (OnPair m) = let
+    g (Just u) = nonNull <$> u
+    g Nothing = error "alterMinWithKeyF: minimum should not be empty"
+    in fmap OnPair <$> alterMinWithKeyF (\k -> g . alterMinWithKeyF (f . (k,))) m
+  
+  alterMaxWithKeyF f (OnPair m) = let
+    g (Just u) = nonNull <$> u
+    g Nothing = error "alterMaxWithKeyF: maximum should not be empty"
+    in fmap OnPair <$> alterMaxWithKeyF (\k -> g . alterMaxWithKeyF (f . (k,))) m
+  
+  alterMinF f (OnPair m) = let
+    g (Just u) = nonNull <$> u
+    g Nothing = error "alterMinF: minimum should not be empty"
+    in fmap OnPair <$> alterMinF (g . alterMinF f) m
+
+  alterMaxF f (OnPair m) = let
+    g (Just u) = nonNull <$> u
+    g Nothing = error "alterMaxF: maximum should not be empty"
+    in fmap OnPair <$> alterMaxF (g . alterMaxF f) m
+
+  merge l r b (OnPair m) (OnPair n) = let
+    l' = umapMaybeMissing (nonNull . runSimpleWhenMissing (reindexMissing (const ()) l))
+    r' = umapMaybeMissing (nonNull . runSimpleWhenMissing (reindexMissing (const ()) r))
+    b' = zipWithMaybeMatched (\_ m' n' -> nonNull $ merge l r b m' n')
+    in OnPair $ merge l' r' b' m n
+
+  mergeA l r b (OnPair m) (OnPair n) = let
+    l' = utraverseMaybeMissing (fmap nonNull . runWhenMissing (reindexMissing (const ()) l))
+    r' = utraverseMaybeMissing (fmap nonNull . runWhenMissing (reindexMissing (const ()) r))
+    b' = WhenMatched (\_ m' n' -> nonNull <$> mergeA l r b m' n')
+    in OnPair <$> mergeA l' r' b' m n
+
+  imerge l r b (OnPair m) (OnPair n) = let
+    l' = mapMaybeMissing (\k -> nonNull . runSimpleWhenMissing (reindexMissing (k,) l))
+    r' = mapMaybeMissing (\k -> nonNull . runSimpleWhenMissing (reindexMissing (k,) r))
+    b' = zipWithMaybeMatched (\k m' n' -> nonNull $ imerge (reindexMissing (k,) l) (reindexMissing (k,) r) (reindexMatched (k,) b) m' n')
+    in OnPair $ imerge l' r' b' m n
+  
+  imergeA l r b (OnPair m) (OnPair n) = let
+    l' = traverseMaybeMissing (\k -> fmap nonNull . runWhenMissing (reindexMissing (k,) l))
+    r' = traverseMaybeMissing (\k -> fmap nonNull . runWhenMissing (reindexMissing (k,) r))
+    b' = WhenMatched (\k m' n' -> nonNull <$> imergeA (reindexMissing (k,) l) (reindexMissing (k,) r) (reindexMatched (k,) b) m' n')
+    in OnPair <$> imergeA l' r' b' m n

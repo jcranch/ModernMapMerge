@@ -7,6 +7,7 @@
 -- | A collection of merge tactics for the new framework.
 module Data.MergeTactics where
 
+import Prelude hiding (filter)
 import Control.Category (Category)
 import Control.Monad ((<=<))
 import Data.Functor.Compose ()
@@ -74,6 +75,10 @@ simpleMissingKey w i = runIdentity . missingKey w i
 mapMaybeMissing :: Applicative f => (k -> x -> Maybe y) -> WhenMissing f k x y
 mapMaybeMissing f = WhenMissing (pure . imapMaybe f)
 
+-- | A keyless version of `mapMaybeMissing`
+umapMaybeMissing :: Applicative f => (x -> Maybe y) -> WhenMissing f k x y
+umapMaybeMissing f = WhenMissing (pure . mapMaybe f)
+
 -- | A `WhenMissing` tactic which folds (using a key), specialised to
 -- $f = Const m$.
 foldMissingKey :: Monoid m => (k -> x -> m) -> WhenMissing (Const m) k x y
@@ -98,13 +103,25 @@ preserveMissing = WhenMissing pure
 mapMissing :: Applicative f => (k -> x -> y) -> WhenMissing f k x y
 mapMissing f = WhenMissing (pure . imap f)
 
+-- | A keyless version of `mapMissing`
+umapMissing :: Applicative f => (x -> y) -> WhenMissing f k x y
+umapMissing f = WhenMissing (pure . fmap f)
+
 -- | A `WhenMissing` tactic which runs `ifilter`.
 filterMissing :: Applicative f => (k -> x -> Bool) -> WhenMissing f k x x
 filterMissing f = WhenMissing (pure . ifilter f)
 
+-- | A keyless version of `filterMissing`
+ufilterMissing :: Applicative f => (x -> Bool) -> WhenMissing f k x x
+ufilterMissing f = WhenMissing (pure . filter f)
+
 -- | The most general `WhenMissing` tactic, which runs `iwither`.
 traverseMaybeMissing :: Applicative f => (k -> x -> f (Maybe y)) -> WhenMissing f k x y
 traverseMaybeMissing f = WhenMissing (iwither f)
+
+-- | A keyless version of `traverseMaybeMissing`
+utraverseMaybeMissing :: Applicative f => (x -> f (Maybe y)) -> WhenMissing f k x y
+utraverseMaybeMissing f = WhenMissing (wither f)
 
 -- | A `WhenMissing` tactic which runs `itraverse`. It is possible
 -- that this will be more efficient than `traverseMaybeMissing`, since
@@ -113,9 +130,17 @@ traverseMaybeMissing f = WhenMissing (iwither f)
 traverseMissing :: Applicative f => (k -> x -> f y) -> WhenMissing f k x y
 traverseMissing f = WhenMissing (itraverse f)
 
+-- | A keyless version of `traverseMissing`
+utraverseMissing :: Applicative f => (x -> f y) -> WhenMissing f k x y
+utraverseMissing f = WhenMissing (traverse f)
+
 -- | A `WhenMissing` tactic which runs `ifilterA`.
 filterAMissing :: Applicative f => (k -> x -> f Bool) -> WhenMissing f k x x
 filterAMissing f = WhenMissing (ifilterA f)
+
+-- | A keyless version of `filterAMissing`
+ufilterAMissing :: Applicative f => (x -> f Bool) -> WhenMissing f k x x
+ufilterAMissing f = WhenMissing (filterA f)
 
 -- | We can use this formalism to change the indices in a
 -- `WhenMissing`.

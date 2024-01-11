@@ -2,6 +2,7 @@
       DeriveFunctor,
       FlexibleContexts,
       FlexibleInstances,
+      GeneralizedNewtypeDeriving,
       KindSignatures,
       MultiParamTypeClasses,
       QuantifiedConstraints,
@@ -10,25 +11,21 @@
   #-}
 
 
--- | A variant of prefix maps: given a `Maplike` with keys `Maybe`
--- @k@, we provide a Maplike with keys `Map` @r k@.
+-- | A variant of prefix maps, indexed on maps rather than lists.
 module Data.Maplike.Branching where
 
-import Prelude hiding (null)
+import Prelude hiding (lookup, null)
 
+import Data.Foldable.WithIndex
 import Data.Functor.WithIndex
 import Data.Kind (Type)
-{-
-import Data.Foldable.WithIndex
-import Data.Map.Strict (Map)
 import Data.Traversable.WithIndex
 import Witherable
+{-
 import Data.MergeTactics (WhenMissing(..),
                           WhenMatched(..),
                           reindexMissing,
                           traverseMaybeMissing)
-
-import qualified Data.Map.Strict as M
 
 -}
 import Data.Maplike
@@ -36,121 +33,107 @@ import Data.Maplike
 
 data Branching (r :: Type)
                (s :: Type)
-               (i :: Type -> Type)
                (m :: Type -> Type)
                (n :: Type -> Type)
+               (i :: Type -> Type)
                (v :: Type) = Branching {
   content :: Maybe v,
-  children :: m (n (Branching r s i m n v))
-}
+  children :: OnPair r s m n (Branching r s m n i v)
+} 
 
 deriving instance (Eq v,
                    forall x. Eq x => Eq (m x),
                    forall x. Eq x => Eq (n x))
-                => Eq (Branching r s i m n v)
+               => Eq (Branching r s m n i v)
 
-deriving instance (Functor m,
-                   Functor n)
-                => Functor (Branching r s i m n)
+instance (Functor m, Functor n) => Functor (Branching r s m n i) where
+  fmap f (Branching h t) = Branching (f <$> h) (fmap f <$> t)
 
-deriving instance (Ord v,
-                   forall x. Ord x => Ord (m x),
-                   forall x. Ord x => Ord (n x))
-                => Ord (Branching r s i m n v)
-
-instance (Maplike r i, FunctorWithIndex r m, FunctorWithIndex s n) => FunctorWithIndex (i s) (Branching r s i m n) where
-
-
-instance (Maplike r i, Maplike r m, Maplike r n) => Maplike (i s) (Branching r s i m n) where
-
-
-{-
-
-
-
-{-
--- | Insert or not depending on Maybe
-maybeInsert :: Maplike k m => k -> Maybe v -> m v -> m v
-maybeInsert _ Nothing  = id
-maybeInsert k (Just v) = insert k v
--}
-
-
-data Branching r m v = Branching {
-  content :: Maybe v,
-  children :: Maybe (r, m (Branching r m v))
-} deriving (Functor)
-
-instance (FunctorWithIndex (Maybe k) m, Ord r) => FunctorWithIndex (Map r k) (Branching r m) where
+instance (Maplike r i, FunctorWithIndex r m, FunctorWithIndex s n) => FunctorWithIndex (i s) (Branching r s m n i) where
   imap f = let
-    go m (Branching h t) = Branching (f m <$> h) (imap (\r -> imap (\k -> go (maybeInsert r k m))) <$> t)
-    in go M.empty
+    go u (Branching h t) = Branching (f u <$> h) (imap (\(k,v) -> go (insert k v u)) t)
+    in go empty
 
-instance Foldable m => Foldable (Branching r m) where
-  foldr f x (Branching h t) = let
-    x' = case t of
-      Nothing     -> x
-      Just (_, m) -> foldr (flip (foldr f)) x m
-    x'' = case h of
-      Nothing -> x'
-      Just a  -> f a x'
-    in x''
+instance (Foldable m, Foldable n) => Foldable (Branching r s m n i) where
+  foldMap f (Branching h t) = foldMap f h <> foldMap (foldMap f) t
+  foldr f z (Branching h t) = foldr f (foldr (flip (foldr f)) z t) h
 
-instance (FoldableWithIndex (Maybe k) m, Ord r) => FoldableWithIndex (Map r k) (Branching r m) where
-
+instance (Maplike r i, FoldableWithIndex r m, FoldableWithIndex s n) => FoldableWithIndex (i s) (Branching r s m n i) where
   ifoldMap f = let
-    go u (Branching h t) = let
-      onT (r, m) = ifoldMap (\z -> go (maybeInsert r z u)) m
-      in foldMap (f u) h <> foldMap onT t
-    in go M.empty
-
+    go u (Branching h t) = foldMap (f u) h <> ifoldMap (\(k,v) -> go (insert k v u)) t
+    in go empty
   ifoldr f = let
-    go u x (Branching h t) = let
-      x' = case t of
-        Nothing     -> x
-        Just (r, m) -> ifoldr (\z -> flip (go (maybeInsert r z u))) x m
-      x'' = case h of
-        Nothing -> x'
-        Just a  -> f u a x'
-      in x''
-    in go M.empty
+    go u z (Branching h t) = foldr (f u) (ifoldr (\(k,v) -> flip (go (insert k v u))) z t) h
+    in go empty
 
-instance Traversable m => Traversable (Branching r m) where
-  traverse f = let
-    g (Branching h t) = liftA2 Branching (traverse f h) (traverse (traverse (traverse g)) t)
-    in g
-
-instance (TraversableWithIndex (Maybe k) m, Ord r) => TraversableWithIndex (Map r k) (Branching r m) where
+instance (Traversable m, Traversable n) => Traversable (Branching r s m n i) where
+  traverse f (Branching h t) = liftA2 Branching (traverse f h) (traverse (traverse f) t)
+  
+instance (Maplike r i, TraversableWithIndex r m, TraversableWithIndex s n) => TraversableWithIndex (i s) (Branching r s m n i) where
   itraverse f = let
-    go u (Branching h t) = liftA2 Branching (traverse (f u) h) (traverse (itraverse (\r -> itraverse (\z -> go (maybeInsert r z u)))) t)
-    in go M.empty
+    go u (Branching h t) = liftA2 Branching (traverse (f u) h) (itraverse (\(k,v) -> go (insert k v u)) t)
+    in go empty
 
-instance (Maplike (Maybe k) m, Ord r) => Filterable (Branching r m) where
-  mapMaybe f = let
-    go (Branching h t) = Branching (f =<< h) (mapMaybe (traverse (nonNull . mapMaybe (nonNull . go))) t)
-    in go
-
-instance (Maplike (Maybe k) m, Ord r) => FilterableWithIndex (Map r k) (Branching r m) where
+instance (Maplike r i, Maplike r m, Maplike s n) => Filterable (Branching r s m n i) where
+  mapMaybe f (Branching h t) = Branching (mapMaybe f h) (mapMaybe (nonNull . mapMaybe f) t)
+  
+instance (Maplike r i, Maplike r m, Maplike s n) => FilterableWithIndex (i s) (Branching r s m n i) where
   imapMaybe f = let
-    go u (Branching h t) = Branching (f u =<< h) (mapMaybe (itraverse (\r -> nonNull . imapMaybe (\z -> nonNull . go (maybeInsert r z u)))) t)
-    in go M.empty
-
-instance (Maplike (Maybe k) m, Ord r) => Witherable (Branching r m) where
-
-instance (Maplike (Maybe k) m, Ord r) => WitherableWithIndex (Map r k) (Branching r m) where
+    go u (Branching h t) = Branching (mapMaybe (f u) h) (imapMaybe (\(k,v) -> nonNull . go (insert k v u)) t)
+    in go empty
+  
+instance (Maplike r i, Maplike r m, Maplike s n) => Witherable (Branching r s m n i) where
+  wither f (Branching h t) = liftA2 Branching (wither f h) (wither (fmap nonNull . wither f) t)
+  
+instance (Maplike r i, Maplike r m, Maplike s n) => WitherableWithIndex (i s) (Branching r s m n i) where
   iwither f = let
-    go u (Branching h t) = liftA2 Branching (wither (f u) h) (wither _ t)
-    in go M.empty
+    go u (Branching h t) = liftA2 Branching (wither (f u) h) (iwither (\(k,v) -> fmap nonNull . go (insert k v u)) t)
+    in go empty
+  
+instance (Maplike r i, Maplike r m, Maplike s n) => Maplike (i s) (Branching r s m n i) where
+  
+  empty = Branching Nothing empty
 
-instance (Maplike (Maybe k) m, Ord r) => Maplike (Map r k) (Branching r m) where
+  null (Branching h t) = null h && null t
 
-  empty = Branching Nothing Nothing
+  singleton u v = case minViewWithKey u of
+    Nothing     -> Branching (Just v) empty
+    Just (p,u') -> Branching Nothing . singleton p $ singleton u' v
 
-  null (Branching Nothing Nothing) = True
-  null _                           = False
+  lookup u (Branching h t) = case minViewWithKey u of
+    Nothing     -> h
+    Just (p,u') -> lookup u' =<< lookup p t
 
-  singleton u z = case M.minViewWithKey u of
-    Nothing           -> Branching (Just z) Nothing
-    (Just ((k,v),u')) -> Branching Nothing  (Just (k, singleton (Just v) (singleton u' z)))
+  alterF f u (Branching h t) = case minViewWithKey u of
+    Nothing     -> flip Branching t <$> f h
+    Just (p,u') -> let
+      g Nothing  = fmap (singleton u') <$> f Nothing
+      g (Just b) = nonNull <$> alterF f u' b
+      in Branching h <$> alterF g p t
 
--}
+  alter f u (Branching h t) = case minViewWithKey u of
+    Nothing     -> Branching (f h) t
+    Just (p,u') -> let
+      g Nothing  = singleton u' <$> f Nothing
+      g (Just b) = nonNull $ alter f u' b
+      in Branching h $ alter g p t
+
+  insert u v (Branching h t) = case minViewWithKey u of
+    Nothing -> Branching (Just v) t
+    Just (p,u') -> let
+      g Nothing  = singleton u' v
+      g (Just b) = insert u' v b
+      in Branching h $ alter (Just . g) p t
+
+  alterMinF = _
+
+  alterMaxF = _
+
+  alterMinWithKeyF = _
+
+  alterMaxWithKeyF = _
+
+  imergeA l r b = let
+    go u (Branching h1 t1) (Branching h2 t2) = let
+      in liftA2 Branching (imergeA _ _ _ h1 h2) (imergeA _ _ _ t1 t2)
+    in go empty
