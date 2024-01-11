@@ -12,10 +12,11 @@ module Data.Maplike where
 
 import Prelude hiding (null)
 
--- import Data.Foldable.WithIndex (FoldableWithIndex)
+import Data.Bifunctor
+import Data.Foldable.WithIndex (FoldableWithIndex(..))
 import Data.Functor.Const (Const(..))
 import Data.Functor.Identity (Identity(..))
--- import Data.Functor.WithIndex (FunctorWithIndex)
+import Data.Functor.WithIndex (FunctorWithIndex(..))
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as I
 import qualified Data.IntMap.Merge as I
@@ -23,10 +24,12 @@ import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
 import qualified Data.Map.Merge as M
 import Data.Maybe (isNothing)
--- import Data.Traversable.WithIndex (TraversableWithIndex)
+import Data.Traversable.WithIndex (TraversableWithIndex(..))
 
-import Witherable (FilterableWithIndex,
-                   WitherableWithIndex)
+import Witherable (Filterable(..),
+                   Witherable(..),
+                   FilterableWithIndex(..),
+                   WitherableWithIndex(..))
 
 import qualified Data.Map.Extra as ME
 import qualified Data.IntMap.Extra as IE
@@ -217,6 +220,66 @@ data OnMaybe k m v = OnMaybe {
   onJust :: m v
 } deriving (Eq, Ord, Read, Show)
 
+instance Functor m => Functor (OnMaybe k m) where
+  fmap f (OnMaybe x u) = OnMaybe (fmap f x) (fmap f u)
+
+instance FunctorWithIndex k m => FunctorWithIndex (Maybe k) (OnMaybe k m) where
+  imap f (OnMaybe x u) = OnMaybe (fmap (f Nothing) x) (imap (f . Just) u)
+
+instance Foldable m => Foldable (OnMaybe k m) where
+  foldr f a (OnMaybe x u) = foldr f (foldr f a u) x
+
+instance FoldableWithIndex k m => FoldableWithIndex (Maybe k) (OnMaybe k m) where
+  ifoldMap f (OnMaybe x u) = foldMap (f Nothing) x <> ifoldMap (f . Just) u
+  ifoldr f a (OnMaybe x u) = foldr (f Nothing) (ifoldr (f . Just) a u) x
+
+instance Traversable m => Traversable (OnMaybe k m) where
+  traverse f (OnMaybe x u) = liftA2 OnMaybe (traverse f x) (traverse f u)
+
+instance TraversableWithIndex k m => TraversableWithIndex (Maybe k) (OnMaybe k m) where
+  itraverse f (OnMaybe x u) = liftA2 OnMaybe (traverse (f Nothing) x) (itraverse (f . Just) u)
+
+instance Filterable m => Filterable (OnMaybe k m) where
+  mapMaybe f (OnMaybe x u) = OnMaybe (f =<< x) (mapMaybe f u)
+
+instance FilterableWithIndex k m => FilterableWithIndex (Maybe k) (OnMaybe k m) where
+  imapMaybe f (OnMaybe x u) = OnMaybe (mapMaybe (f Nothing) x) (imapMaybe (f . Just) u)
+
+instance Witherable m => Witherable (OnMaybe k m) where
+  wither f (OnMaybe x u) = liftA2 OnMaybe (wither f x) (wither f u)
+
+instance WitherableWithIndex k m => WitherableWithIndex (Maybe k) (OnMaybe k m) where
+  iwither f (OnMaybe x u) = liftA2 OnMaybe (wither (f Nothing) x) (iwither (f . Just) u)
+
+instance Maplike k m => Maplike (Maybe k) (OnMaybe k m) where
+
+  empty = OnMaybe Nothing empty
+
+  null (OnMaybe x u) = null x && null u
+
+  singleton Nothing  x = OnMaybe (Just x) empty
+  singleton (Just a) x = OnMaybe Nothing $ singleton a x
+
+  alterF f Nothing  (OnMaybe x u) = flip OnMaybe u <$> f x
+  alterF f (Just a) (OnMaybe x u) = OnMaybe x <$> alterF f a u
+
+  alter f Nothing  (OnMaybe x u) = flip OnMaybe u $ f x
+  alter f (Just a) (OnMaybe x u) = OnMaybe x $ alter f a u
+
+  insert Nothing y (OnMaybe _ u) = OnMaybe (Just y) u
+  insert (Just a) y (OnMaybe x u) = OnMaybe x $ insert a y u
+
+  minViewWithKey (OnMaybe x u) = case x of
+    Just y  -> Just ((Nothing, y), OnMaybe Nothing u)
+    Nothing -> fmap (bimap (first Just) (OnMaybe x)) $ minViewWithKey u
+
+  maxViewWithKey (OnMaybe x u) = case maxViewWithKey u of
+    Just ((k, y), u') -> Just ((Just k, y), OnMaybe x u')
+    Nothing -> case x of
+      Just y -> Just ((Nothing, y), OnMaybe Nothing u)
+      Nothing -> Nothing
+
+  alterMinWithKeyF = _
 
 data OnEither k l m n v =
   OnEitherL (m v) |

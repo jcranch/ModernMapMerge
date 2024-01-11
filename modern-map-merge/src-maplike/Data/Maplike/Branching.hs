@@ -1,7 +1,11 @@
 {-# LANGUAGE
       DeriveFunctor,
       FlexibleContexts,
+      FlexibleInstances,
+      KindSignatures,
       MultiParamTypeClasses,
+      QuantifiedConstraints,
+      StandaloneDeriving,
       UndecidableInstances
   #-}
 
@@ -12,8 +16,10 @@ module Data.Maplike.Branching where
 
 import Prelude hiding (null)
 
-import Data.Foldable.WithIndex
 import Data.Functor.WithIndex
+import Data.Kind (Type)
+{-
+import Data.Foldable.WithIndex
 import Data.Map.Strict (Map)
 import Data.Traversable.WithIndex
 import Witherable
@@ -24,21 +30,49 @@ import Data.MergeTactics (WhenMissing(..),
 
 import qualified Data.Map.Strict as M
 
+-}
 import Data.Maplike
 
 
--- TODO This data structure kinda sucks; we have the possibility of
--- useless branches where all we're doing is imposing a "Nothing",
--- which is the default. What would be more apposite?
+data Branching (r :: Type)
+               (s :: Type)
+               (i :: Type -> Type)
+               (m :: Type -> Type)
+               (n :: Type -> Type)
+               (v :: Type) = Branching {
+  content :: Maybe v,
+  children :: m (n (Branching r s i m n v))
+}
+
+deriving instance (Eq v,
+                   forall x. Eq x => Eq (m x),
+                   forall x. Eq x => Eq (n x))
+                => Eq (Branching r s i m n v)
+
+deriving instance (Functor m,
+                   Functor n)
+                => Functor (Branching r s i m n)
+
+deriving instance (Ord v,
+                   forall x. Ord x => Ord (m x),
+                   forall x. Ord x => Ord (n x))
+                => Ord (Branching r s i m n v)
+
+instance (Maplike r i, FunctorWithIndex r m, FunctorWithIndex s n) => FunctorWithIndex (i s) (Branching r s i m n) where
 
 
+{-
+
+
+
+{-
 -- | Insert or not depending on Maybe
 maybeInsert :: Maplike k m => k -> Maybe v -> m v -> m v
 maybeInsert _ Nothing  = id
 maybeInsert k (Just v) = insert k v
+-}
 
 
--- TODO Probably want strict Maybes and a strict pair
 data Branching r m v = Branching {
   content :: Maybe v,
   children :: Maybe (r, m (Branching r m v))
@@ -115,3 +149,5 @@ instance (Maplike (Maybe k) m, Ord r) => Maplike (Map r k) (Branching r m) where
   singleton u z = case M.minViewWithKey u of
     Nothing           -> Branching (Just z) Nothing
     (Just ((k,v),u')) -> Branching Nothing  (Just (k, singleton (Just v) (singleton u' z)))
+
+-}
