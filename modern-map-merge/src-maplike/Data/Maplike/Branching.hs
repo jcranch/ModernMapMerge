@@ -127,11 +127,13 @@ instance (Maplike r i, Maplike r m, Maplike s n) => Maplike (i s) (Branching r s
 
   alterMaxF f (Branching h t) = _
 
-  alterMinWithKeyF f (Branching h t) = _
+  alterMinWithKeyF f = let
+    go u (Branching h t) = _
+    in go empty
 
-  alterMaxWithKeyF f (Branching h t) = case alterMaxWithKeyF _ t of
-    Nothing -> _
-    Just t' -> _
+  alterMaxWithKeyF f = let
+    go u (Branching h t) = _
+    in go empty
 
   merge l r b = let
     go (Branching h1 t1) (Branching h2 t2) = let
