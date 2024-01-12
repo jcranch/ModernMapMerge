@@ -13,7 +13,7 @@ module Data.Maplike where
 import Prelude hiding (lookup, null)
 
 import Data.Bifunctor
-import Data.Foldable.WithIndex (FoldableWithIndex(..))
+import Data.Foldable.WithIndex (FoldableWithIndex(..), itoList)
 import Data.Functor.Const (Const(..))
 import Data.Functor.Identity (Identity(..))
 import Data.Functor.WithIndex (FunctorWithIndex(..))
@@ -192,6 +192,18 @@ instance Maplike Int IntMap where
   alterMaxWithKeyF = IE.alterMaxWithKeyF
   imergeA = I.mergeA
 
+
+-- | Make a maplike; keys on the left override keys on the right
+fromiFold :: (FoldableWithIndex k m, Maplike k n) => m v -> n v
+fromiFold = ifoldr insert empty
+
+-- | Make a maplike; keys on the left override keys on the right
+fromFold :: (Foldable f, Maplike k n) => f (k, v) -> n v
+fromFold = foldr (uncurry insert) empty
+
+-- | A default "Show" function using fromFold
+showsPrecFromFold :: (Maplike k m, Show k, Show v) => Int -> m v -> String -> String
+showsPrecFromFold p m = showParen (p > 10) $ showString "fromFold " . showsPrec 11 (itoList m)
 
 -- | Union, preferring left
 union :: Maplike k m => m v -> m v -> m v

@@ -57,3 +57,22 @@ internal-libraries:
       - witherable                    >= 0.4.2    && < 0.5
     ghc-options:
       - -fno-warn-orphans
+
+tests:
+  test-maplike:
+    main:                Spec.hs
+    source-dirs:         test-maplike
+    ghc-options:
+    - -Wall
+    - -Wcompat
+    - -Wincomplete-record-updates
+    - -Wincomplete-uni-patterns
+    - -Wredundant-constraints
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - hspec                          >= 2.11     && < 2.12
+    - maplike
+    build-tool-depends:
+    - hspec-discover:hspec-discover  >= 2.11     && < 2.12

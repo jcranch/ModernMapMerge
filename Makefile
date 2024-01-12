@@ -1,6 +1,6 @@
 build:
 	cd mini-witherable ; stack build
-	cd modern-map-merge ; stack build
+	cd modern-map-merge ; stack test
 
 documents: rationale/blogpost.html \
            rationale/summary.html \

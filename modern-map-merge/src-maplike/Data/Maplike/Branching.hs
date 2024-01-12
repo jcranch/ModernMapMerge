@@ -19,6 +19,7 @@ import Prelude hiding (lookup, null)
 import Data.Foldable.WithIndex
 import Data.Functor.WithIndex
 import Data.Kind (Type)
+import Data.Map.Strict (Map)
 import Data.Traversable.WithIndex
 import Witherable
 
@@ -36,6 +37,11 @@ data Branching (r :: Type)
   content :: Maybe v,
   children :: OnPair r s m n (Branching r s m n i v)
 }
+
+instance (Maplike r i, Maplike r m, Maplike s n, Show r, Show (i s), Show v) => Show (Branching r s m n i v) where
+  showsPrec = showsPrecFromFold
+
+type MapBranching r s v = Branching r s (Map r) (Map s) (Map r) v
 
 deriving instance (Eq v,
                    forall x. Eq x => Eq (m x),
@@ -121,18 +127,34 @@ instance (Maplike r i, Maplike r m, Maplike s n) => Maplike (i s) (Branching r s
       g (Just b) = insert u' v b
       in Branching h $ alter (Just . g) p t
 
-  alterMinF f (Branching h t) = case alterMinF f h of
-    Nothing -> fmap (Branching h) <$> alterMinF (fmap nonNull . _) t
-    Just h' -> Just (flip Branching t <$> h')
+  alterMinF f (Branching h t) = let
+    p Nothing  = error "alterMinF: unexpected Nothing"
+    p (Just a) = nonNull <$> a
+    in case h of
+      Just x  -> Just (flip Branching t <$> f x)
+      Nothing -> fmap (fmap (Branching h)) $ alterMinF (p . alterMinF f) t
 
-  alterMaxF f (Branching h t) = _
+  alterMaxF f (Branching h t) = let
+    p Nothing  = error "alterMaxF: unexpected Nothing"
+    p (Just a) = nonNull <$> a
+    in case alterMaxF (p . alterMaxF f) t of
+      Just t' -> Just (Branching h <$> t')
+      Nothing -> fmap (flip Branching t) . f <$> h
 
   alterMinWithKeyF f = let
-    go u (Branching h t) = _
+    p Nothing  = error "alterMinWithKeyF: unexpected Nothing"
+    p (Just a) = nonNull <$> a
+    go u (Branching h t) = case h of
+      Just x  -> Just (flip Branching t <$> f u x)
+      Nothing -> fmap (fmap (Branching h)) $ alterMinWithKeyF (\(k,v) -> p . go (insert k v u)) t
     in go empty
 
   alterMaxWithKeyF f = let
-    go u (Branching h t) = _
+    p Nothing  = error "alterMaxWithKeyF: unexpected Nothing"
+    p (Just a) = nonNull <$> a
+    go u (Branching h t) = case alterMaxWithKeyF (\(k,v) -> p . go (insert k v u)) t of
+      Just t' -> Just (Branching h <$> t')
+      Nothing -> fmap (flip Branching t) . f u <$> h
     in go empty
 
   merge l r b = let
@@ -162,8 +184,8 @@ instance (Maplike r i, Maplike r m, Maplike s n) => Maplike (i s) (Branching r s
               (reindexMissing (const u) r)
               (reindexMatched (const u) b)
       onT = imerge
-              (mapMaybeMissing (\(k,v) -> nonNull . runSimpleWhenMissing (reindexMissing (union u) l)))
-              (mapMaybeMissing (\(k,v) -> nonNull . runSimpleWhenMissing (reindexMissing (union u) r)))
+              (mapMaybeMissing (\(k,v) -> nonNull . runSimpleWhenMissing (reindexMissing (union (insert k v u)) l)))
+              (mapMaybeMissing (\(k,v) -> nonNull . runSimpleWhenMissing (reindexMissing (union (insert k v u)) r)))
               (zipWithMaybeMatched (\(k,v) m1 m2 -> nonNull $ go (insert k v u) m1 m2))
       in Branching (onH h1 h2) (onT t1 t2)
     in go empty
@@ -175,8 +197,8 @@ instance (Maplike r i, Maplike r m, Maplike s n) => Maplike (i s) (Branching r s
               (reindexMissing (const u) r)
               (reindexMatched (const u) b)
       onT = imergeA
-              (traverseMaybeMissing (\(k,v) -> fmap nonNull . runWhenMissing (reindexMissing (union u) l)))
-              (traverseMaybeMissing (\(k,v) -> fmap nonNull . runWhenMissing (reindexMissing (union u) r)))
+              (traverseMaybeMissing (\(k,v) -> fmap nonNull . runWhenMissing (reindexMissing (union (insert k v u)) l)))
+              (traverseMaybeMissing (\(k,v) -> fmap nonNull . runWhenMissing (reindexMissing (union (insert k v u)) r)))
               (WhenMatched (\(k,v) m1 m2 -> nonNull <$> go (insert k v u) m1 m2))
       in liftA2 Branching (onH h1 h2) (onT t1 t2)
     in go empty
