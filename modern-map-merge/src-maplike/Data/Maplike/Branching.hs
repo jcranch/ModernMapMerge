@@ -35,7 +35,7 @@ data Branching (r :: Type)
                (v :: Type) = Branching {
   content :: Maybe v,
   children :: OnPair r s m n (Branching r s m n i v)
-} 
+}
 
 deriving instance (Eq v,
                    forall x. Eq x => Eq (m x),
@@ -64,7 +64,7 @@ instance (Maplike r i, FoldableWithIndex r m, FoldableWithIndex s n) => Foldable
 
 instance (Traversable m, Traversable n) => Traversable (Branching r s m n i) where
   traverse f (Branching h t) = liftA2 Branching (traverse f h) (traverse (traverse f) t)
-  
+
 instance (Maplike r i, TraversableWithIndex r m, TraversableWithIndex s n) => TraversableWithIndex (i s) (Branching r s m n i) where
   itraverse f = let
     go u (Branching h t) = liftA2 Branching (traverse (f u) h) (itraverse (\(k,v) -> go (insert k v u)) t)
@@ -72,22 +72,22 @@ instance (Maplike r i, TraversableWithIndex r m, TraversableWithIndex s n) => Tr
 
 instance (Maplike r i, Maplike r m, Maplike s n) => Filterable (Branching r s m n i) where
   mapMaybe f (Branching h t) = Branching (mapMaybe f h) (mapMaybe (nonNull . mapMaybe f) t)
-  
+
 instance (Maplike r i, Maplike r m, Maplike s n) => FilterableWithIndex (i s) (Branching r s m n i) where
   imapMaybe f = let
     go u (Branching h t) = Branching (mapMaybe (f u) h) (imapMaybe (\(k,v) -> nonNull . go (insert k v u)) t)
     in go empty
-  
+
 instance (Maplike r i, Maplike r m, Maplike s n) => Witherable (Branching r s m n i) where
   wither f (Branching h t) = liftA2 Branching (wither f h) (wither (fmap nonNull . wither f) t)
-  
+
 instance (Maplike r i, Maplike r m, Maplike s n) => WitherableWithIndex (i s) (Branching r s m n i) where
   iwither f = let
     go u (Branching h t) = liftA2 Branching (wither (f u) h) (iwither (\(k,v) -> fmap nonNull . go (insert k v u)) t)
     in go empty
-  
+
 instance (Maplike r i, Maplike r m, Maplike s n) => Maplike (i s) (Branching r s m n i) where
-  
+
   empty = Branching Nothing empty
 
   null (Branching h t) = null h && null t
@@ -129,13 +129,42 @@ instance (Maplike r i, Maplike r m, Maplike s n) => Maplike (i s) (Branching r s
 
   alterMinWithKeyF f (Branching h t) = _
 
-  alterMaxWithKeyF f (Branching h t) = _
+  alterMaxWithKeyF f (Branching h t) = case alterMaxWithKeyF _ t of
+    Nothing -> _
+    Just t' -> _
 
-  merge l r b = _
+  merge l r b = let
+    go (Branching h1 t1) (Branching h2 t2) = let
+      onH = merge l r b
+      onT = merge
+              (umapMaybeMissing (nonNull . runSimpleWhenMissing (reindexMissing (const ()) l)))
+              (umapMaybeMissing (nonNull . runSimpleWhenMissing (reindexMissing (const ()) r)))
+              (zipWithMaybeMatched (\_ m1 m2 -> nonNull $ go m1 m2))
+      in Branching (onH h1 h2) (onT t1 t2)
+    in go
 
-  mergeA l r b = _
+  mergeA l r b = let
+    go (Branching h1 t1) (Branching h2 t2) = let
+      onH = mergeA l r b
+      onT = mergeA
+              (utraverseMaybeMissing (fmap nonNull . runWhenMissing (reindexMissing (const ()) l)))
+              (utraverseMaybeMissing (fmap nonNull . runWhenMissing (reindexMissing (const ()) r)))
+              (WhenMatched (\_ m1 m2 -> nonNull <$> go m1 m2))
+      in liftA2 Branching (onH h1 h2) (onT t1 t2)
+    in go
 
-  imerge l r b = _
+  imerge l r b = let
+    go u (Branching h1 t1) (Branching h2 t2) = let
+      onH = imerge
+              (reindexMissing (const u) l)
+              (reindexMissing (const u) r)
+              (reindexMatched (const u) b)
+      onT = imerge
+              (mapMaybeMissing (\(k,v) -> nonNull . runSimpleWhenMissing (reindexMissing (union u) l)))
+              (mapMaybeMissing (\(k,v) -> nonNull . runSimpleWhenMissing (reindexMissing (union u) r)))
+              (zipWithMaybeMatched (\(k,v) m1 m2 -> nonNull $ go (insert k v u) m1 m2))
+      in Branching (onH h1 h2) (onT t1 t2)
+    in go empty
 
   imergeA l r b = let
     go u (Branching h1 t1) (Branching h2 t2) = let
