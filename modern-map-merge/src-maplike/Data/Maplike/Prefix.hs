@@ -127,6 +127,14 @@ instance Maplike k m => Maplike [k] (PrefixMap m) where
       Just u -> Just (PrefixMap a <$> u)
       Nothing -> h <$> a
 
+  alterAnyWithKeyF f (PrefixMap (Just x) m) = let
+    h y = PrefixMap y m
+    in Just (h <$> f [] x)
+  alterAnyWithKeyF f (PrefixMap Nothing m) = let
+    g Nothing  = error "alterAnyWithKeyF: unexpected empty part"
+    g (Just u) = nonNull <$> u
+    in fmap (PrefixMap Nothing) <$> alterAnyWithKeyF (\x -> g . alterAnyWithKeyF (f . (x:))) m
+
   alterMinWithKeyF f (PrefixMap (Just x) m) = let
     h y = PrefixMap y m
     in Just (h <$> f [] x)
@@ -142,6 +150,25 @@ instance Maplike k m => Maplike [k] (PrefixMap m) where
     in case alterMaxWithKeyF (\x -> g . alterMaxWithKeyF (f . (x:))) m of
       Just u  -> Just (PrefixMap a <$> u)
       Nothing -> fmap h . f [] <$> a
+
+  alterAnyF f (PrefixMap (Just x) m) = Just (flip PrefixMap m <$> f x)
+  alterAnyF f (PrefixMap Nothing m) = let
+    g Nothing  = error "alterAnyF: unexpected empty part"
+    g (Just u) = nonNull <$> u
+    in fmap (PrefixMap Nothing) <$> alterAnyF (g . alterAnyF f) m
+
+  alterMinF f (PrefixMap (Just x) m) = Just (flip PrefixMap m <$> f x)
+  alterMinF f (PrefixMap Nothing m) = let
+    g Nothing  = error "alterMinF: unexpected empty part"
+    g (Just u) = nonNull <$> u
+    in fmap (PrefixMap Nothing) <$> alterMinF (g . alterMinF f) m
+
+  alterMaxF f (PrefixMap a m) = let
+    g Nothing  = error "alterMaxF: unexpected empty part"
+    g (Just u) = nonNull <$> u
+    in case alterMaxF (g . alterMaxF f) m of
+      Just u  -> Just (PrefixMap a <$> u)
+      Nothing -> fmap (flip PrefixMap m) . f <$> a
 
   imergeA l r (WhenMatched b) = let
 

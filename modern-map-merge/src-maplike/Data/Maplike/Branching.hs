@@ -163,6 +163,21 @@ instance (Maplike r i, Maplike r m, Maplike s n) => Maplike (i s) (Branching r s
       Nothing -> fmap (flip Branching t) . f u <$> h
     in go empty
 
+  alterAnyWithKeyF f = let
+    p Nothing  = error "alterAnyWithKeyF: unexpected Nothing"
+    p (Just a) = nonNull <$> a
+    go u (Branching h t) = case h of
+      Just x  -> Just (flip Branching t <$> f u x)
+      Nothing -> fmap (fmap (Branching h)) $ alterAnyWithKeyF (\(k,v) -> p . go (insert k v u)) t
+    in go empty
+
+  alterAnyF f (Branching h t) = let
+    p Nothing  = error "alterAnyF: unexpected Nothing"
+    p (Just a) = nonNull <$> a
+    in case h of
+      Just x  -> Just (flip Branching t <$> f x)
+      Nothing -> fmap (fmap (Branching h)) $ alterAnyF (p . alterAnyF f) t
+
   merge l r b = let
     go (Branching h1 t1) (Branching h2 t2) = let
       onH = merge l r b

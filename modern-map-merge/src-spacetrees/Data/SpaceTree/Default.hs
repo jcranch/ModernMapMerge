@@ -11,7 +11,6 @@ module Data.SpaceTree.Default where
 
 import Data.Foldable.WithIndex
 import Data.Functor.WithIndex
-import Data.Ord (Down(..))
 import Data.Traversable.WithIndex
 import Witherable
 
@@ -51,9 +50,9 @@ instance (Ord p, DefaultCoordinate b p i, Maplike i m) => Maplike p (DefaultMap 
 
   singleton p v = DefaultMap $ Singleton p v
 
-  alterMinWithKeyF f (DefaultMap m) = fmap DefaultMap <$> alterLeastWithKeyFT Just (Just . leastPoint) f outer m
+  alterMinWithKeyF f (DefaultMap m) = fmap DefaultMap <$> alterMinWithKeyFT f outer m
 
-  alterMaxWithKeyF f (DefaultMap m) = fmap DefaultMap <$> alterLeastWithKeyFT (Just . Down) (Just . Down . greatestPoint) f outer m
+  alterMaxWithKeyF f (DefaultMap m) = fmap DefaultMap <$> alterMaxWithKeyFT f outer m
 
   alterF f p (DefaultMap m) = DefaultMap <$> alterFT f p outer m
 

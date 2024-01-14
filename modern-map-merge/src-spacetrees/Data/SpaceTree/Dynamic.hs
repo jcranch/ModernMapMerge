@@ -58,3 +58,10 @@ instance (Coordinate b p i, Maplike i m) => Maplike p (DynamicMap p i b m) where
 
   singleton p v = DynamicMap (Just (pointBox p)) (Singleton p v)
 
+  alterF f x (DynamicMap (Just b) m) = _
+
+  alterMinWithKeyF _ (DynamicMap Nothing _)  = Nothing
+  alterMinWithKeyF f (DynamicMap (Just b) m) = fmap (DynamicMap (Just b)) <$> alterMinWithKeyFT f b m
+
+  alterMaxWithKeyF _ (DynamicMap Nothing _)  = Nothing
+  alterMaxWithKeyF f (DynamicMap (Just b) m) = fmap (DynamicMap (Just b)) <$> alterMaxWithKeyFT f b m

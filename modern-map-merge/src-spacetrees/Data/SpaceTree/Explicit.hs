@@ -7,13 +7,15 @@
       QuantifiedConstraints
   #-}
 
--- | An interface to spacetrees where we supply the bounding box
+-- | An interface to spacetrees where we supply the bounding box with
+-- all instructions
 module Data.SpaceTree.Explicit where
 
 import Data.Foldable.WithIndex
 import Data.Functor.WithIndex
 import qualified Data.PQueue.Prio.Min as Q
 import Data.Monoid (Sum(..))
+import Data.Ord (Down(..))
 import Data.Traversable.WithIndex
 import Witherable
 
@@ -97,17 +99,17 @@ alterFT f p = let
   in go
 
 -- | I think I need to be careful with strictness in this algorithm
-alterLeastWithKeyFT :: (Coordinate b p i,
-                        Maplike i m,
-                        Ord a,
-                        Functor f)
-                    => (p -> Maybe a)
-                    -> (b -> Maybe a)
-                    -> (p -> v -> f (Maybe v))
-                    -> b
-                    -> SpaceTree p i b m v
-                    -> Maybe (f (SpaceTree p i b m v))
-alterLeastWithKeyFT r s f = let
+alterBestWithKeyFT :: (Coordinate b p i,
+                       Maplike i m,
+                       Ord a,
+                       Functor f)
+                   => (p -> Maybe a)
+                   -> (b -> Maybe a)
+                   -> (p -> v -> f (Maybe v))
+                   -> b
+                   -> SpaceTree p i b m v
+                   -> Maybe (f (SpaceTree p i b m v))
+alterBestWithKeyFT r s f = let
   enqueue b c m q = case m of
     Empty         -> q
     Singleton p v -> case r p of
@@ -119,17 +121,105 @@ alterLeastWithKeyFT r s f = let
   go q = case Q.minView q of
     Nothing                      -> Nothing
     Just ((Left (p, v), c), _)   -> Just (c . maybeSingleton p <$> f p v)
-    Just ((Right (b, u), c), q') -> let
-      in go $ ifoldr (\i -> enqueue (subbox b i) (c . makeBranch . flip (insert i) u)) q' u
+    Just ((Right (b, u), c), q') -> go $ ifoldr (\i -> enqueue (subbox b i) (c . makeBranch . flip (insert i) u)) q' u
   start b m = go $ enqueue b id m Q.empty
   in start
 
 
+alterMinWithKeyFT :: (Coordinate b p i,
+                      Maplike i m,
+                      Functor f)
+                  => (p -> v -> f (Maybe v))
+                  -> b
+                  -> SpaceTree p i b m v
+                  -> Maybe (f (SpaceTree p i b m v))
+alterMinWithKeyFT = alterBestWithKeyFT Just (Just . leastPoint)
+
+
+alterMaxWithKeyFT :: (Coordinate b p i,
+                      Maplike i m,
+                      Functor f)
+                  => (p -> v -> f (Maybe v))
+                  -> b
+                  -> SpaceTree p i b m v
+                  -> Maybe (f (SpaceTree p i b m v))
+alterMaxWithKeyFT = alterBestWithKeyFT (Just . Down) (Just . Down . greatestPoint)
+
+
+alterAnyWithKeyFT :: (Coordinate b p i,
+                      Maplike i m,
+                      Functor f)
+                  => (p -> v -> f (Maybe v))
+                  -> SpaceTree p i b m v
+                  -> Maybe (f (SpaceTree p i b m v))
+alterAnyWithKeyFT _ Empty           = Nothing
+alterAnyWithKeyFT f (Singleton p v) = Just (maybeSingleton p <$> f p v)
+alterAnyWithKeyFT f (Branch _ u)    = let
+  h (Just m) = m
+  h Nothing  = error "alterAnyWithKeyFT: unexpected Nothing"
+  in fmap makeBranch <$> alterAnyF (fmap nonNullT . h . alterAnyWithKeyFT f) u
+
+
+foldlBestWithKeyT :: (Coordinate b p i,
+                      Maplike i m,
+                      Ord a)
+                  => (p -> Maybe a)
+                  -> (b -> Maybe a)
+                  -> (c -> p -> v -> c)
+                  -> c
+                  -> b
+                  -> SpaceTree p i b m v
+                  -> c
+foldlBestWithKeyT r s f = let
+  enqueue b m q = case m of
+    Empty         -> q
+    Singleton p v -> case r p of
+      Just x  -> Q.insert x (Left (p, v)) q
+      Nothing -> q
+    Branch _ u    -> case s b of
+      Just x  -> Q.insert x (Right (b, u)) q
+      Nothing -> q
+  go z q = case Q.minView q of
+    Nothing                 -> z
+    Just (Left (p, v), q')  -> go (f z p $! v) q'
+    Just (Right (b, u), q') -> go z $ ifoldr (enqueue . subbox b) q' u
+  start z b m = go z $ enqueue b m Q.empty
+  in start
+
+
+foldrBestWithKeyT :: (Coordinate b p i,
+                      Maplike i m,
+                      Ord a)
+                  => (p -> Maybe a)
+                  -> (b -> Maybe a)
+                  -> (p -> v -> c -> c)
+                  -> c
+                  -> b
+                  -> SpaceTree p i b m v
+                  -> c
+foldrBestWithKeyT r s f z = let
+  enqueue b m q = case m of
+    Empty         -> q
+    Singleton p v -> case r p of
+      Just x  -> Q.insert x (Left (p, v)) q
+      Nothing -> q
+    Branch _ u    -> case s b of
+      Just x  -> Q.insert x (Right (b, u)) q
+      Nothing -> q
+  go q = case Q.minView q of
+    Nothing                 -> z
+    Just (Left (p, v), q')  -> f p v $ go q'
+    Just (Right (b, u), q') -> go $ ifoldr (enqueue . subbox b) q' u
+  start b m = go $ enqueue b m Q.empty
+  in start
+
+
 instance (Eq p, forall x. Eq x => Eq (m x), Eq v) => Eq (SpaceTree p i b m v) where
-  Empty == Empty = True
+  Empty           == Empty           = True
   Singleton p1 v1 == Singleton p2 v2 = p1 == p2 && v1 == v2
-  Branch n1 m1 == Branch n2 m2 = n1 == n2 && m1 == m2 -- testing size is faster
-  _ == _ = False
+  Branch n1 m1    == Branch n2 m2    = n1 == n2 && m1 == m2 -- testing size is faster
+  _               == _               = False
+
 
 instance Functor m => FunctorWithIndex p (SpaceTree p i b m) where
   imap _ Empty = Empty
@@ -284,8 +374,8 @@ imergeSameAT l r t = let
 
   in go
 
-{-
 
+-- | Change bounding box, discarding points not in the new bounding
+-- box.
 rebound :: b -> b -> SpaceTree p i b m v -> SpaceTree p i b m v
 rebound = _
--}

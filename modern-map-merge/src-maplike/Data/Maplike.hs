@@ -122,6 +122,23 @@ class (FilterableWithIndex k m, WitherableWithIndex k m) => Maplike k m | m -> k
   -- change the maximum key, but if the map is empty, return `Nothing`
   alterMaxWithKeyF :: Functor f => (k -> v -> f (Maybe v)) -> m v -> Maybe (f (m v))
 
+  -- | For some data structures (eg space trees), it is desirable in
+  -- some algorithms to rapidly change any element;
+  alterAnyWithKeyF :: Functor f => (k -> v -> f (Maybe v)) -> m v -> Maybe (f (m v))
+  alterAnyWithKeyF = alterMinWithKeyF
+
+  -- | Remove any element, if possible
+  anyViewWithKey :: m v -> Maybe ((k, v), m v)
+  anyViewWithKey = alterAnyWithKeyF (\k v -> ((k, v), Nothing))
+
+  -- | Alter any element, if possible
+  alterAnyF :: Functor f => (v -> f (Maybe v)) -> m v -> Maybe (f (m v))
+  alterAnyF = alterAnyWithKeyF . const
+
+  -- | Remove any element, if possible
+  anyView :: m v -> Maybe (v, m v)
+  anyView = alterAnyF (,Nothing)
+
   -- Merge two data structures
   -- Some data structures can implement unindexed merging rather more
   -- efficiently. This is particularly true of tries, where accessing
@@ -482,6 +499,10 @@ instance (Maplike k m, Maplike l n) => Maplike (Either k l) (OnEither k l m n) w
   alter f (Left x) (OnEither m n) = flip OnEither n $ alter f x m
   alter f (Right x) (OnEither m n) = OnEither m $ alter f x n
 
+  alterAnyWithKeyF f (OnEither m n) = case alterAnyWithKeyF (f . Left) m of
+    Just u -> Just (flip OnEither n <$> u)
+    Nothing -> fmap (OnEither m) <$> alterAnyWithKeyF (f . Right) n
+
   alterMinWithKeyF f (OnEither m n) = case alterMinWithKeyF (f . Left) m of
     Just u -> Just (flip OnEither n <$> u)
     Nothing -> fmap (OnEither m) <$> alterMinWithKeyF (f . Right) n
@@ -577,6 +598,11 @@ instance (Maplike k m, Maplike l n) => Maplike (k,l) (OnPair k l m n) where
     g (Just u) = nonNull <$> u
     g Nothing = error "alterMaxWithKeyF: maximum should not be empty"
     in fmap OnPair <$> alterMaxWithKeyF (\k -> g . alterMaxWithKeyF (f . (k,))) m
+
+  alterAnyWithKeyF f (OnPair m) = let
+    g (Just u) = nonNull <$> u
+    g Nothing = error "alterAnyWithKeyF: element found should not be empty"
+    in fmap OnPair <$> alterAnyWithKeyF (\k -> g . alterAnyWithKeyF (f . (k,))) m
 
   alterMinF f (OnPair m) = let
     g (Just u) = nonNull <$> u
