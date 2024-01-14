@@ -16,6 +16,7 @@ module Data.Maplike.Branching where
 
 import Prelude hiding (lookup, null)
 
+import Data.Bifunctor (first)
 import Data.Foldable.WithIndex
 import Data.Functor.WithIndex
 import Data.Kind (Type)
@@ -101,6 +102,11 @@ instance (Maplike r i, Maplike r m, Maplike s n) => Maplike (i s) (Branching r s
   singleton u v = case minViewWithKey u of
     Nothing     -> Branching (Just v) empty
     Just (p,u') -> Branching Nothing . singleton p $ singleton u' v
+
+  classify (Branching h t) = let
+    u = first (const empty) (classify h)
+    v = bindClassify (\(k,x) -> insert k x) classify (classify t)
+    in u <> v
 
   lookup u (Branching h t) = case minViewWithKey u of
     Nothing     -> h

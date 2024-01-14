@@ -3,8 +3,8 @@ version:            0.2.0.0
 license:            BSD3
 author:             "James Cranch"
 maintainer:         "j.d.cranch@sheffield.ac.uk"
-copyright:          "2022-23 James Cranch (all), 2020 Fumiaki Kinoshita (mini-witherable)"
-synopsis:           Proof-of-concept for improved merges in Haskell
+copyright:          "2022-24 James Cranch"
+synopsis:           Improved merges in Haskell
 category:           Data structures
 
 dependencies:
@@ -39,6 +39,14 @@ internal-libraries:
     source-dirs:    src-maplike
     dependencies:
       - modernmapmerge
+      - witherable                    >= 0.4.2    && < 0.5
+
+  spacetrees:
+    source-dirs:    src-spacetrees
+    dependencies:
+      - maplike
+      - modernmapmerge
+      - pqueue                        >= 1.5.0    && < 1.7
       - witherable                    >= 0.4.2    && < 0.5
 
   extra:

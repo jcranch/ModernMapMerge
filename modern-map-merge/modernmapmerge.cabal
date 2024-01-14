@@ -6,11 +6,11 @@ cabal-version: 2.0
 
 name:           modernmapmerge
 version:        0.2.0.0
-synopsis:       Proof-of-concept for improved merges in Haskell
+synopsis:       Improved merges in Haskell
 category:       Data structures
 author:         James Cranch
 maintainer:     j.d.cranch@sheffield.ac.uk
-copyright:      2022-23 James Cranch (all), 2020 Fumiaki Kinoshita (mini-witherable)
+copyright:      2022-24 James Cranch
 license:        BSD3
 build-type:     Simple
 
@@ -88,6 +88,7 @@ library maplike
       Data.Maplike
       Data.Maplike.Branching
       Data.Maplike.Prefix
+      Data.Setlike
   other-modules:
       Paths_modernmapmerge
   autogen-modules:
@@ -100,6 +101,29 @@ library maplike
     , containers >=0.6.4.1 && <0.7
     , indexed-traversable >=0.1.2 && <0.2
     , modernmapmerge
+    , witherable >=0.4.2 && <0.5
+  default-language: Haskell2010
+
+library spacetrees
+  exposed-modules:
+      Data.SpaceTree.Coords
+      Data.SpaceTree.Default
+      Data.SpaceTree.Dynamic
+      Data.SpaceTree.Explicit
+  other-modules:
+      Paths_modernmapmerge
+  autogen-modules:
+      Paths_modernmapmerge
+  hs-source-dirs:
+      src-spacetrees
+  ghc-options: -Wall -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints -Werror -Wwarn=missing-home-modules -O2
+  build-depends:
+      base >=4.15 && <4.19
+    , containers >=0.6.4.1 && <0.7
+    , indexed-traversable >=0.1.2 && <0.2
+    , maplike
+    , modernmapmerge
+    , pqueue >=1.5.0 && <1.7
     , witherable >=0.4.2 && <0.5
   default-language: Haskell2010
 

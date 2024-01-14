@@ -17,6 +17,7 @@ import Prelude hiding (null)
 #else
 import Control.Applicative (liftA2)
 #endif
+import Data.Bifunctor (first)
 import Data.Foldable.WithIndex
 import Data.Functor.WithIndex
 import Data.Traversable.WithIndex
@@ -93,6 +94,11 @@ instance Maplike k m => Maplike [k] (PrefixMap m) where
 
   singleton [] x = PrefixMap (Just x) empty
   singleton (k:ks) x = PrefixMap Nothing . singleton k $ singleton ks x
+
+  classify (PrefixMap a x) = let
+    u = first (const []) (classify a)
+    v = bindClassify (:) classify (classify x)
+    in u <> v
 
   -- alterF :: (Functor f) => (Maybe v -> f (Maybe v)) -> [k] -> PrefixMap m v -> f (PrefixMap m v)
   alterF a = let

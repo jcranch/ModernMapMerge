@@ -183,3 +183,9 @@ onLeftMatched m = WhenMatched (\i x _ -> missingKey m i x)
 onRightMatched :: Applicative f => WhenMissing f k y z -> WhenMatched f k x y z
 onRightMatched m = WhenMatched (\i _ y -> missingKey m i y)
 
+
+type SimpleWhenMatched = WhenMatched Identity
+
+-- | A variant of `missingKey` specialised to @f = Identity@.
+simpleMatchedKey :: SimpleWhenMatched i x y z -> i -> x -> y -> Maybe z
+simpleMatchedKey w i x y = runIdentity $ matchedKey w i x y

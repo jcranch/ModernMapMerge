@@ -1,4 +1,5 @@
 {-# LANGUAGE
+      DeriveFunctor,
       FlexibleInstances,
       FunctionalDependencies,
       MultiParamTypeClasses,
@@ -36,6 +37,35 @@ import qualified Data.IntMap.Extra as IE
 import Data.MergeTactics
 
 
+data Classified k v = Zero | One k v | Many
+  deriving (Eq, Ord, Functor)
+
+instance Semigroup (Classified k v) where
+  Zero    <> a    = a
+  One k v <> Zero = One k v
+  One _ _ <> _    = Many
+  Many    <> _    = Many
+
+instance Monoid (Classified k v) where
+  mempty = Zero
+
+instance Bifunctor Classified where
+  first _ Zero = Zero
+  first _ Many = Many
+  first f (One k v) = One (f k) v
+  bimap _ _ Zero      = Zero
+  bimap _ _ Many      = Many
+  bimap f g (One k v) = One (f k) (g v)
+
+-- | I think this is some kind of indexed monadic functionality
+bindClassify :: (i -> j -> k) -> (u -> Classified j v) -> Classified i u -> Classified k v
+bindClassify p f m = case m of
+  Zero    -> Zero
+  Many    -> Many
+  One k n -> first (p k) (f n)
+
+
+
 class (FilterableWithIndex k m, WitherableWithIndex k m) => Maplike k m | m -> k where
 
   empty :: m v
@@ -43,6 +73,13 @@ class (FilterableWithIndex k m, WitherableWithIndex k m) => Maplike k m | m -> k
   null :: m v -> Bool
 
   singleton :: k -> v -> m v
+
+  classify :: m v -> Classified k v
+  classify m = case minViewWithKey m of
+    Nothing         -> Zero
+    Just ((k,v),m')
+      | null m'     -> One k v
+      | otherwise   -> Many
 
   lookup :: k -> m v -> Maybe v
   lookup k = getConst . alterF Const k
@@ -139,6 +176,8 @@ instance Maplike () Maybe where
   empty = Nothing
   null = isNothing
   singleton _ = Just
+  classify Nothing  = Zero
+  classify (Just x) = One () x
   lookup _ m = m
   alterF a _ m = a m
   alter a _ = a
@@ -193,6 +232,10 @@ instance Maplike Int IntMap where
   imergeA = I.mergeA
 
 
+-- | Remove a key (if present)
+delete :: Maplike k m => k -> m v -> m v
+delete = alter (const Nothing)
+
 -- | Make a maplike; keys on the left override keys on the right
 fromiFold :: (FoldableWithIndex k m, Maplike k n) => m v -> n v
 fromiFold = ifoldr insert empty
@@ -220,6 +263,10 @@ intersection = merge dropMissing dropMissing preserveLeftMatched
 -- | Intersection, with combining function
 intersectionWith :: Maplike k m => (v -> v -> v) -> m v -> m v -> m v
 intersectionWith f = merge dropMissing dropMissing (zipWithMatched $ const f)
+
+-- | Remove all keys in second argument from first argument
+difference :: Maplike k m => m v -> m u -> m v
+difference = merge preserveMissing dropMissing dropMatched
 
 -- | Combine matching pairs
 pairBy :: (Maplike k m, Monoid a) => (u -> v -> a) -> m u -> m v -> a
@@ -278,6 +325,8 @@ instance Maplike k m => Maplike (Maybe k) (OnMaybe k m) where
 
   singleton Nothing  x = OnMaybe (Just x) empty
   singleton (Just a) x = OnMaybe Nothing $ singleton a x
+
+  classify (OnMaybe x u) = first (const Nothing) (classify x) <> first Just (classify u)
 
   lookup Nothing  (OnMaybe x _) = x
   lookup (Just z) (OnMaybe _ u) = lookup z u
@@ -398,6 +447,8 @@ instance (Maplike k m, Maplike l n) => Maplike (Either k l) (OnEither k l m n) w
   singleton (Left x)  y = OnEither (singleton x y) empty
   singleton (Right x) y = OnEither empty (singleton x y)
 
+  classify (OnEither m n) = first Left (classify m) <> first Right (classify n)
+
   lookup (Left x)  (OnEither m _) = lookup x m
   lookup (Right x) (OnEither _ n) = lookup x n
 
@@ -458,7 +509,7 @@ instance (Maplike k m, Maplike l n) => Maplike (Either k l) (OnEither k l m n) w
     m = imergeA (reindexMissing Left l) (reindexMissing Left r) (reindexMatched Left b) m1 m2
     n = imergeA (reindexMissing Right l) (reindexMissing Right r) (reindexMatched Right b) n1 n2
     in liftA2 OnEither m n
-    
+
 
 
 newtype OnPair k l m n v = OnPair {
@@ -505,6 +556,8 @@ instance (Maplike k m, Maplike l n) => Maplike (k,l) (OnPair k l m n) where
 
   singleton (k,l) v = OnPair . singleton k $ singleton l v
 
+  classify (OnPair m) = bindClassify (,) classify $ classify m
+
   alterF f (k,l) (OnPair m) = let
     g Nothing  = fmap (fmap (singleton l)) $ f Nothing
     g (Just n) = nonNull <$> alterF f l n
@@ -519,12 +572,12 @@ instance (Maplike k m, Maplike l n) => Maplike (k,l) (OnPair k l m n) where
     g (Just u) = nonNull <$> u
     g Nothing = error "alterMinWithKeyF: minimum should not be empty"
     in fmap OnPair <$> alterMinWithKeyF (\k -> g . alterMinWithKeyF (f . (k,))) m
-  
+
   alterMaxWithKeyF f (OnPair m) = let
     g (Just u) = nonNull <$> u
     g Nothing = error "alterMaxWithKeyF: maximum should not be empty"
     in fmap OnPair <$> alterMaxWithKeyF (\k -> g . alterMaxWithKeyF (f . (k,))) m
-  
+
   alterMinF f (OnPair m) = let
     g (Just u) = nonNull <$> u
     g Nothing = error "alterMinF: minimum should not be empty"
@@ -552,7 +605,7 @@ instance (Maplike k m, Maplike l n) => Maplike (k,l) (OnPair k l m n) where
     r' = mapMaybeMissing (\k -> nonNull . runSimpleWhenMissing (reindexMissing (k,) r))
     b' = zipWithMaybeMatched (\k m' n' -> nonNull $ imerge (reindexMissing (k,) l) (reindexMissing (k,) r) (reindexMatched (k,) b) m' n')
     in OnPair $ imerge l' r' b' m n
-  
+
   imergeA l r b (OnPair m) (OnPair n) = let
     l' = traverseMaybeMissing (\k -> fmap nonNull . runWhenMissing (reindexMissing (k,) l))
     r' = traverseMaybeMissing (\k -> fmap nonNull . runWhenMissing (reindexMissing (k,) r))
