@@ -50,39 +50,68 @@ class (Coordinate b p i) => DefaultCoordinate b p i where
 
 data Ival n = Ival {
   leftEnd :: n,
-  rightEnd :: n
+  closedLeft :: Bool,
+  rightEnd :: n,
+  closedRight :: Bool
 } deriving (Eq, Ord, Read, Show)
 
 midPoint :: Fractional n => Ival n -> n
-midPoint (Ival a b) = (a+b)/2
+midPoint (Ival a _ b _) = (a+b)/2
 
 instance Ord n => Semigroup (Ival n) where
-  Ival a b <> Ival c d = Ival (min a c) (max b d)
+  Ival a p b q <> Ival c r d s = let
+    (e,t) = case compare a c of
+      LT -> (a, p)
+      EQ -> (a, p || r)
+      GT -> (c, r)
+    (f,u) = case compare b d of
+      LT -> (d, s)
+      EQ -> (d, q || s)
+      GT -> (b, q)
+    in Ival e t f u
 
 instance (Fractional n, Ord n) => Coordinate (Ival n) n Bool where
 
-  narrow i@(Ival a b) c = let
+  narrow i@(Ival a p b q) c = let
     m = midPoint i
     in if c < m
-       then (False, Ival a m)
-       else (True,  Ival m b)
+       then (False, Ival a p m True)
+       else (True,  Ival m False b q)
 
-  subbox i@(Ival a _) False = Ival a (midPoint i)
-  subbox i@(Ival _ b) True  = Ival (midPoint i) b
+  subbox i@(Ival a p _ _) False = Ival a p (midPoint i) True
+  subbox i@(Ival _ _ b q) True  = Ival (midPoint i) False b q
 
-  pointBox a = Ival a a
+  pointBox a = Ival a True a True
 
-  disjoint (Ival a b) (Ival c d) = b < c || d < a
+  disjoint (Ival a p b q) (Ival c r d s) = case compare b c of
+    LT -> True
+    EQ -> q && r
+    GT -> case compare d a of
+      LT -> True
+      EQ -> p && s
+      GT -> False
 
-  isSubset (Ival a b) (Ival c d) = c >= a && d <= b
+  isSubset (Ival a p b q) (Ival c r d s) = let
+    s1 = case compare a c of
+      GT -> True
+      EQ -> r || not p
+      LT -> False
+    s2 = case compare b d of
+      LT -> True
+      EQ -> s || not q
+      GT -> False
+    in s1 && s2
 
-  containsPoint (Ival a b) c = case compare a c of
+  containsPoint (Ival a p b q) c = case compare a c of
     GT -> False
-    EQ -> True
-    LT -> c < b
+    EQ -> p
+    LT -> case compare c b of
+      GT -> False
+      EQ -> q
+      LT -> True
 
-  leastPoint    (Ival a _) = a
-  greatestPoint (Ival _ b) = b
+  leastPoint    (Ival a _ _ _) = a
+  greatestPoint (Ival _ _ b _) = b
 
 
 
