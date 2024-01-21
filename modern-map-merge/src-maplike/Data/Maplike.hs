@@ -139,6 +139,15 @@ class (FilterableWithIndex k m, WitherableWithIndex k m) => Maplike k m | m -> k
   anyView :: m v -> Maybe (v, m v)
   anyView = alterAnyF (,Nothing)
 
+  getMaxWithKey :: m v -> Maybe (k, v)
+  getMaxWithKey = getConst . alterMaxWithKeyF (\k v -> Const (k, v))
+
+  getMinWithKey :: m v -> Maybe (k, v)
+  getMinWithKey = getConst . alterMinWithKeyF (\k v -> Const (k, v))
+
+  getAnyWithKey :: m v -> Maybe (k, v)
+  getAnyWithKey = getConst . alterAnyWithKeyF (\k v -> Const (k, v))
+
   -- Merge two data structures
   -- Some data structures can implement unindexed merging rather more
   -- efficiently. This is particularly true of tries, where accessing

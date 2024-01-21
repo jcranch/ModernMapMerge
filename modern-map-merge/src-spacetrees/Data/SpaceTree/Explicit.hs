@@ -374,8 +374,31 @@ imergeSameAT l r t = let
 
   in go
 
+{-
 
--- | Change bounding box, discarding points not in the new bounding
--- box.
-rebound :: b -> b -> SpaceTree p i b m v -> SpaceTree p i b m v
-rebound = _
+-- | Return parts contained within the new box, and the
+-- remainder. This is probably only of interest insofar as it's part
+-- of the implementation of "rebound".
+clipRebound :: b -> [(b, SpaceTree p i b m v)] -> (SpaceTree p i b m v, [(b, SpaceTree p i b m v)])
+clipRebound _ [] = (Empty, [])
+clipRebound b [(c, Singleton p v)] = if containsPoint b p
+  then (Singleton p v, [])
+  else (Empty, [(c, Singleton p v)])
+clipRebound b = let
+  inner ((c, t):l) = if disjoint b c then
+    case getAnyWithKey t of
+    Nothing    -> inner l
+    Just (p,v) -> if containsPoint b p
+      then let
+      (i,b') = narrow b p
+      (n,l') = clipRebound
+
+-- | Change bounding box, assume (and do not check) that all points
+-- are in the new bounding box
+rebound :: b -> [(b, SpaceTree p i b m v)] -> SpaceTree p i b m v
+rebound _ [] = Empty
+rebound _ [(_, Singleton p v)] = Singleton p v
+rebound new ((old, t):l) = case anyViewWithKey t of
+  Nothing -> rebound new l
+
+-}
