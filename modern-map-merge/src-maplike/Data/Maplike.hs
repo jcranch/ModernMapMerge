@@ -140,13 +140,13 @@ class (FilterableWithIndex k m, WitherableWithIndex k m) => Maplike k m | m -> k
   anyView = alterAnyF (,Nothing)
 
   getMaxWithKey :: m v -> Maybe (k, v)
-  getMaxWithKey = getConst . alterMaxWithKeyF (\k v -> Const (k, v))
+  getMaxWithKey = fmap getConst . alterMaxWithKeyF (\k v -> Const (k, v))
 
   getMinWithKey :: m v -> Maybe (k, v)
-  getMinWithKey = getConst . alterMinWithKeyF (\k v -> Const (k, v))
+  getMinWithKey = fmap getConst . alterMinWithKeyF (\k v -> Const (k, v))
 
   getAnyWithKey :: m v -> Maybe (k, v)
-  getAnyWithKey = getConst . alterAnyWithKeyF (\k v -> Const (k, v))
+  getAnyWithKey = fmap getConst . alterAnyWithKeyF (\k v -> Const (k, v))
 
   -- Merge two data structures
   -- Some data structures can implement unindexed merging rather more
