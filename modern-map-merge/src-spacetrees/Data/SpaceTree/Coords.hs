@@ -1,10 +1,13 @@
 {-# LANGUAGE
       FlexibleInstances,
       FunctionalDependencies,
-      MultiParamTypeClasses
+      MultiParamTypeClasses,
+      RankNTypes
   #-}
 
 module Data.SpaceTree.Coords where
+
+import Data.Ord (Down(..))
 
 
 -- | A class of "boxes" `b` which contain points `p`, and are
@@ -38,6 +41,10 @@ class (Eq b, Semigroup b, Ord p, Eq i)
 
   -- | Not very interesting in general, but needed for `alterMaxWithKeyF`
   greatestPoint :: b -> p
+
+  -- | Used to narrow down bounding boxes
+  findExtent :: (forall v. Ord v => (p -> v) -> (b -> v) -> x -> Maybe v) -> x -> Maybe b
+
 
 isSuperset :: Coordinate b p i => b -> b -> Bool
 isSuperset = flip isSubset
@@ -113,6 +120,10 @@ instance (Fractional n, Ord n) => Coordinate (Ival n) n Bool where
   leastPoint    (Ival a _ _ _) = a
   greatestPoint (Ival _ _ b _) = b
 
+  findExtent minimise x = do
+    a <- minimise id leftEnd x
+    b <- getDown <$> minimise Down (Down . rightEnd) x
+    pure $ Ival a True b True
 
 
 data Rectangle b c p q i j = Rectangle {
@@ -143,6 +154,11 @@ instance (Coordinate b p i,
   leastPoint    (Rectangle u v) = (leastPoint u, leastPoint v)
   greatestPoint (Rectangle u v) = (greatestPoint u, greatestPoint v)
 
+  findExtent f x = do
+    u <- findExtent (\g h -> f (g . fst) (h . rectanglex)) x
+    v <- findExtent (\g h -> f (g . snd) (h . rectangley)) x
+    pure $ Rectangle u v
+
 
 -- | The common case of a homogeneous rectangle
 data Rectangle' b p i = Rectangle' {
@@ -171,6 +187,11 @@ instance (Coordinate b p i)
 
   leastPoint    (Rectangle' u v) = (leastPoint u, leastPoint v)
   greatestPoint (Rectangle' u v) = (greatestPoint u, greatestPoint v)
+
+  findExtent f x = do
+    u <- findExtent (\g h -> f (g . fst) (h . rectanglex')) x
+    v <- findExtent (\g h -> f (g . snd) (h . rectangley')) x
+    pure $ Rectangle' u v
 
 
 data Cuboid b c d p q r i j k = Cuboid {
@@ -204,6 +225,12 @@ instance (Coordinate b p i,
   leastPoint    (Cuboid u v w) = (leastPoint u, leastPoint v, leastPoint w)
   greatestPoint (Cuboid u v w) = (greatestPoint u, greatestPoint v, greatestPoint w)
 
+  findExtent f x = do
+    u <- findExtent (\g h -> f (g . (\(a,_,_) -> a)) (h . cuboidx)) x
+    v <- findExtent (\g h -> f (g . (\(_,a,_) -> a)) (h . cuboidy)) x
+    w <- findExtent (\g h -> f (g . (\(_,_,a) -> a)) (h . cuboidz)) x
+    pure $ Cuboid u v w
+
 
 data Cuboid' b p i = Cuboid' {
   cuboidx' :: b,
@@ -233,3 +260,9 @@ instance (Coordinate b p i)
 
   leastPoint    (Cuboid' u v w) = (leastPoint u, leastPoint v, leastPoint w)
   greatestPoint (Cuboid' u v w) = (greatestPoint u, greatestPoint v, greatestPoint w)
+
+  findExtent f x = do
+    u <- findExtent (\g h -> f (g . (\(a,_,_) -> a)) (h . cuboidx')) x
+    v <- findExtent (\g h -> f (g . (\(_,a,_) -> a)) (h . cuboidy')) x
+    w <- findExtent (\g h -> f (g . (\(_,_,a) -> a)) (h . cuboidz')) x
+    pure $ Cuboid' u v w

@@ -4,8 +4,13 @@
       MultiParamTypeClasses
   #-}
 
+-- | Spacetrees together with a bounding box.
+--
+-- Algorithms do not shrink the box unless asked to do so
+-- specifically.
 module Data.SpaceTree.Dynamic where
 
+import Data.Functor.Compose (Compose(..))
 import Data.Foldable.WithIndex
 import Data.Functor.WithIndex
 import Data.Traversable.WithIndex
@@ -58,10 +63,23 @@ instance (Coordinate b p i, Maplike i m) => Maplike p (DynamicMap p i b m) where
 
   singleton p v = DynamicMap (Just (pointBox p)) (Singleton p v)
 
-  alterF f x (DynamicMap (Just b) m) = _
+  alterF f p (DynamicMap Nothing  _) = maybeSingleton p <$> f Nothing
+  alterF f p (DynamicMap (Just b) m) = let
+    g Nothing  = (False, Nothing)
+    g (Just x) = (True,  Just x)
+    b' = b <> pointBox p
+    h (False, t) = DynamicMap (Just b)  t
+    h (True,  t) = DynamicMap (Just b') t
+    in fmap h . getCompose $ alterFT (Compose . fmap g . f) p b m
 
-  alterMinWithKeyF _ (DynamicMap Nothing _)  = Nothing
+  alterMinWithKeyF _ (DynamicMap Nothing  _) = Nothing
   alterMinWithKeyF f (DynamicMap (Just b) m) = fmap (DynamicMap (Just b)) <$> alterMinWithKeyFT f b m
 
-  alterMaxWithKeyF _ (DynamicMap Nothing _)  = Nothing
+  alterMaxWithKeyF _ (DynamicMap Nothing  _) = Nothing
   alterMaxWithKeyF f (DynamicMap (Just b) m) = fmap (DynamicMap (Just b)) <$> alterMaxWithKeyFT f b m
+
+
+-- | What's the tightest possible bounding box?
+extent :: (Coordinate b p i, Maplike i m) => DynamicMap p i b m v -> Maybe b
+extent (DynamicMap Nothing  _) = Nothing
+extent (DynamicMap (Just b) m) = findExtent (\r s -> findBestT (Just . r) (Just . s) b) m

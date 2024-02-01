@@ -12,6 +12,7 @@
 module Data.SpaceTree.Explicit where
 
 import Data.Foldable.WithIndex
+import Data.Functor.Const (Const(..))
 import Data.Functor.WithIndex
 import qualified Data.PQueue.Prio.Min as Q
 import Data.Monoid (Sum(..))
@@ -55,9 +56,9 @@ nullT :: SpaceTree p i b m v -> Bool
 nullT Empty = True
 nullT _     = False
 
-maybeSingleton :: p -> Maybe v -> SpaceTree p i b m v
-maybeSingleton _ Nothing  = Empty
-maybeSingleton p (Just v) = Singleton p v
+maybeSingletonT :: p -> Maybe v -> SpaceTree p i b m v
+maybeSingletonT _ Nothing  = Empty
+maybeSingletonT p (Just v) = Singleton p v
 
 doubleton :: (Coordinate b p i, Maplike i m) => b -> p -> v -> p -> v -> SpaceTree p i b m v
 doubleton b p1 v1 p2 v2 = let
@@ -87,9 +88,9 @@ alterFT :: (Coordinate b p i,
         -> SpaceTree p i b m v
         -> f (SpaceTree p i b m v)
 alterFT f p = let
-  go _ Empty = maybeSingleton p <$> f Nothing
+  go _ Empty = maybeSingletonT p <$> f Nothing
   go b (Singleton q x)
-    | p == q    = maybeSingleton q <$> f (Just x)
+    | p == q    = maybeSingletonT q <$> f (Just x)
     | otherwise = maybeDoubleton b q x p <$> f Nothing
   go b (Branch _ u) = let
     (i,b') = narrow b p
@@ -105,7 +106,7 @@ alterBestWithKeyFT :: (Coordinate b p i,
                        Functor f)
                    => (p -> Maybe a)
                    -> (b -> Maybe a)
-                   -> (p -> v -> f (Maybe v))
+                   -> (a -> p -> v -> f (Maybe v))
                    -> b
                    -> SpaceTree p i b m v
                    -> Maybe (f (SpaceTree p i b m v))
@@ -118,12 +119,22 @@ alterBestWithKeyFT r s f = let
     Branch _ u    -> case s b of
       Just x  -> Q.insert x (Right (b, u), c) q
       Nothing -> q
-  go q = case Q.minView q of
-    Nothing                      -> Nothing
-    Just ((Left (p, v), c), _)   -> Just (c . maybeSingleton p <$> f p v)
-    Just ((Right (b, u), c), q') -> go $ ifoldr (\i -> enqueue (subbox b i) (c . makeBranch . flip (insert i) u)) q' u
+  go q = case Q.minViewWithKey q of
+    Nothing                           -> Nothing
+    Just ((a, (Left  (p, v), c)), _ ) -> Just (c . maybeSingletonT p <$> f a p v)
+    Just ((_, (Right (b, u), c)), q') -> go $ ifoldr (\i -> enqueue (subbox b i) (c . makeBranch . flip (insert i) u)) q' u
   start b m = go $ enqueue b id m Q.empty
   in start
+
+findBestT :: (Coordinate b p i,
+              Maplike i m,
+              Ord a)
+          => (p -> Maybe a)
+          -> (b -> Maybe a)
+          -> b
+          -> SpaceTree p i b m v
+          -> Maybe a
+findBestT r s b = fmap getConst . alterBestWithKeyFT r s (\a _ _ -> Const a) b
 
 
 alterMinWithKeyFT :: (Coordinate b p i,
@@ -133,7 +144,7 @@ alterMinWithKeyFT :: (Coordinate b p i,
                   -> b
                   -> SpaceTree p i b m v
                   -> Maybe (f (SpaceTree p i b m v))
-alterMinWithKeyFT = alterBestWithKeyFT Just (Just . leastPoint)
+alterMinWithKeyFT f = alterBestWithKeyFT Just (Just . leastPoint) (const f)
 
 
 alterMaxWithKeyFT :: (Coordinate b p i,
@@ -143,7 +154,7 @@ alterMaxWithKeyFT :: (Coordinate b p i,
                   -> b
                   -> SpaceTree p i b m v
                   -> Maybe (f (SpaceTree p i b m v))
-alterMaxWithKeyFT = alterBestWithKeyFT (Just . Down) (Just . Down . greatestPoint)
+alterMaxWithKeyFT f = alterBestWithKeyFT (Just . Down) (Just . Down . greatestPoint) (const f)
 
 
 alterAnyWithKeyFT :: (Coordinate b p i,
@@ -153,7 +164,7 @@ alterAnyWithKeyFT :: (Coordinate b p i,
                   -> SpaceTree p i b m v
                   -> Maybe (f (SpaceTree p i b m v))
 alterAnyWithKeyFT _ Empty           = Nothing
-alterAnyWithKeyFT f (Singleton p v) = Just (maybeSingleton p <$> f p v)
+alterAnyWithKeyFT f (Singleton p v) = Just (maybeSingletonT p <$> f p v)
 alterAnyWithKeyFT f (Branch _ u)    = let
   h (Just m) = m
   h Nothing  = error "alterAnyWithKeyFT: unexpected Nothing"
@@ -254,22 +265,22 @@ instance Traversable m => TraversableWithIndex p (SpaceTree p i b m) where
 
 instance (Maplike i m) => Filterable (SpaceTree p i b m) where
   mapMaybe _ Empty = Empty
-  mapMaybe f (Singleton p a) = maybeSingleton p (f a)
+  mapMaybe f (Singleton p a) = maybeSingletonT p (f a)
   mapMaybe f (Branch _ u) = makeBranch $ fmap (mapMaybe f) u
 
 instance (Maplike i m) => FilterableWithIndex p (SpaceTree p i b m) where
   imapMaybe _ Empty = Empty
-  imapMaybe f (Singleton p a) = maybeSingleton p (f p a)
+  imapMaybe f (Singleton p a) = maybeSingletonT p (f p a)
   imapMaybe f (Branch _ u) = makeBranch $ mapMaybe (nonNullT . imapMaybe f) u
 
 instance (Maplike i m) => Witherable (SpaceTree p i b m) where
   wither _ Empty = pure Empty
-  wither f (Singleton p a) = maybeSingleton p <$> f a
+  wither f (Singleton p a) = maybeSingletonT p <$> f a
   wither f (Branch _ u) = makeBranch <$> wither (fmap nonNullT . wither f) u
 
 instance (Maplike i m) => WitherableWithIndex p (SpaceTree p i b m) where
   iwither _ Empty = pure Empty
-  iwither f (Singleton p a) = maybeSingleton p <$> f p a
+  iwither f (Singleton p a) = maybeSingletonT p <$> f p a
   iwither f (Branch _ u) = makeBranch <$> wither (fmap nonNullT . iwither f) u
 
 
@@ -322,7 +333,7 @@ imergeSameT l r t = let
   go _ Empty               m2                  = runSimpleWhenMissing r m2
   go _ m1                  Empty               = runSimpleWhenMissing l m1
   go b (Singleton p1 v1)   (Singleton p2 v2)
-    | p1 == p2                                 = maybeSingleton p1 $ simpleMatchedKey t p1 v1 v2
+    | p1 == p2                                 = maybeSingletonT p1 $ simpleMatchedKey t p1 v1 v2
     | otherwise                                = maybeDoubleton2 b p1 p2
                                                    (simpleMissingKey l p1 v1)
                                                    (simpleMissingKey r p2 v2)
@@ -359,7 +370,7 @@ imergeSameAT l r t = let
   go _ Empty               m2                  = runWhenMissing r m2
   go _ m1                  Empty               = runWhenMissing l m1
   go b (Singleton p1 v1)   (Singleton p2 v2)
-    | p1 == p2                                 = maybeSingleton p1 <$> matchedKey t p1 v1 v2
+    | p1 == p2                                 = maybeSingletonT p1 <$> matchedKey t p1 v1 v2
     | otherwise                                = liftA2
                                                    (maybeDoubleton2 b p1 p2)
                                                    (missingKey l p1 v1)

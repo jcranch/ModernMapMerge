@@ -37,6 +37,8 @@ import qualified Data.IntMap.Extra as IE
 import Data.MergeTactics
 
 
+-- | We can be interested in whether a data structure consists of no
+-- elements, one element or more than that
 data Classified k v = Zero | One k v | Many
   deriving (Eq, Ord, Functor)
 
@@ -257,6 +259,11 @@ instance Maplike Int IntMap where
   alterMaxWithKeyF = IE.alterMaxWithKeyF
   imergeA = I.mergeA
 
+
+-- | Either an empty map or a singleton
+maybeSingleton :: Maplike k m => k -> Maybe v -> m v
+maybeSingleton _ Nothing  = empty
+maybeSingleton k (Just v) = singleton k v
 
 -- | Remove a key (if present)
 delete :: Maplike k m => k -> m v -> m v
