@@ -17,6 +17,7 @@ import Data.Traversable.WithIndex
 import Witherable
 
 import Data.Maplike
+import Data.MergeTactics
 import Data.SpaceTree.Coords
 import Data.SpaceTree.Explicit
 
@@ -78,8 +79,34 @@ instance (Coordinate b p i, Maplike i m) => Maplike p (DynamicMap p i b m) where
   alterMaxWithKeyF _ (DynamicMap Nothing  _) = Nothing
   alterMaxWithKeyF f (DynamicMap (Just b) m) = fmap (DynamicMap (Just b)) <$> alterMaxWithKeyFT f b m
 
+  -- For efficiency, this has to be reasonably complicated. We do a
+  -- more complicated version of the filtering code, where we extract
+  -- a point at a time and find its subbox. However, we want four
+  -- versions, depending on whether we can reuse the bounding box of
+  -- either argument.
+  imergeA onL onR onB = let
+
+    toB b m n = _
+    
+    toL b c m n = _
+    
+    toR b c m n = _
+    
+    toU b c d m n = _
+
+    go (DynamicMap Nothing _)  (DynamicMap Nothing _)  = pure empty
+    go (DynamicMap (Just b) m) (DynamicMap Nothing _)  = DynamicMap (Just b) <$> runWhenMissing onL m
+    go (DynamicMap Nothing _)  (DynamicMap (Just c) n) = DynamicMap (Just c) <$> runWhenMissing onR n
+    go (DynamicMap (Just b) m) (DynamicMap (Just c) n)
+      | b == c       = toB b m n
+      | isSubset c b = toL b c m n
+      | isSubset b c = toR b c m n
+      | otherwise    = toU b c (b <> c) m n
+
+    in go
 
 -- | What's the tightest possible bounding box?
 extent :: (Coordinate b p i, Maplike i m) => DynamicMap p i b m v -> Maybe b
 extent (DynamicMap Nothing  _) = Nothing
 extent (DynamicMap (Just b) m) = findExtent (\r s -> findBestT (Just . r) (Just . s) b) m
+

@@ -11,6 +11,7 @@
 -- all instructions
 module Data.SpaceTree.Explicit where
 
+import Data.Complex (Complex(..))
 import Data.Foldable.WithIndex
 import Data.Functor.Const (Const(..))
 import Data.Functor.WithIndex
@@ -294,6 +295,27 @@ fastFilter f g = let
     Nothing    -> makeBranch $ imapMaybe (\i -> nonNullT . go (subbox b i)) u
   in go
 
+-- | The bits for which the predicates are true, followed by those for which they are false
+fastPartition :: (Coordinate b p i,
+                  Maplike i m)
+              => (p -> Bool)
+              -> (b -> Maybe Bool)
+              -> b
+              -> SpaceTree p i b m v
+              -> (SpaceTree p i b m v, SpaceTree p i b m v)
+fastPartition f g = let
+  complexToPair (x :+ y) = (x, y)
+  go _ Empty = Empty :+ Empty
+  go _ s@(Singleton p _) = if f p
+    then s :+ Empty
+    else Empty :+ s
+  go b s@(Branch _ u) = case g b of
+    Just True  -> s :+ Empty
+    Just False -> Empty :+ s
+    Nothing    -> makeBranch <$> iwither (\i -> fmap nonNullT . go (subbox b i)) u
+  start b = complexToPair . go b
+  in start
+
 fastFilterA :: (Coordinate b p i, Maplike i m, Monad f) => (p -> f Bool) -> (b -> f (Maybe Bool)) -> b -> SpaceTree p i b m v -> f (SpaceTree p i b m v)
 fastFilterA f g = let
   go _ Empty = pure Empty
@@ -306,7 +328,6 @@ fastFilterA f g = let
     h Nothing      = makeBranch <$> iwither (\i -> fmap nonNullT . go (subbox b i)) u
     in h =<< g b
   in go
-
 
 extent :: (Coordinate b p i, Foldable m) => SpaceTree p i b m v -> Maybe b
 extent = ifoldMap (\p _ -> Just (pointBox p))
@@ -385,31 +406,35 @@ imergeSameAT l r t = let
 
   in go
 
-{-
 
--- | Return parts contained within the new box, and the
--- remainder. This is probably only of interest insofar as it's part
--- of the implementation of "rebound".
-clipRebound :: b -> [(b, SpaceTree p i b m v)] -> (SpaceTree p i b m v, [(b, SpaceTree p i b m v)])
-clipRebound _ [] = (Empty, [])
-clipRebound b [(c, Singleton p v)] = if containsPoint b p
-  then (Singleton p v, [])
-  else (Empty, [(c, Singleton p v)])
-clipRebound b = let
-  inner ((c, t):l) = if disjoint b c then
-    case getAnyWithKey t of
-    Nothing    -> inner l
-    Just (p,v) -> if containsPoint b p
-      then let
-      (i,b') = narrow b p
-      (n,l') = clipRebound
 
 -- | Change bounding box, assume (and do not check) that all points
 -- are in the new bounding box
-rebound :: b -> [(b, SpaceTree p i b m v)] -> SpaceTree p i b m v
-rebound _ [] = Empty
-rebound _ [(_, Singleton p v)] = Singleton p v
-rebound new ((old, t):l) = case anyViewWithKey t of
-  Nothing -> rebound new l
+fastReboundT :: (Coordinate b p i,
+                 Maplike i m) => b -> b -> SpaceTree p i b m v -> SpaceTree p i b m v
+fastReboundT old new = let
+  go t = case alterAnyWithKeyFT (\p _ -> Const p) t of
+    Nothing        -> []
+    Just (Const p) -> let
+      (i, new') = narrow new p
+      (u, t')   = clipReboundT old new' t
+      in (i,u):go t'
+  in makeBranch . fromFold . go
 
--}
+-- | Return parts contained within the new box, and the
+-- remainder.
+clipReboundT :: (Coordinate b p i,
+                 Maplike i m)
+             => b
+             -> b
+             -> SpaceTree p i b m v
+             -> (SpaceTree p i b m v, SpaceTree p i b m v)
+clipReboundT old new t = let
+  g b
+    | isSubset b new = Just True
+    | disjoint b new = Just False
+    | otherwise      = Nothing
+  (ins, outs) = fastPartition (containsPoint new) g old t
+  in (fastReboundT old new ins, outs)
+
+
