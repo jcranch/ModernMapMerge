@@ -105,7 +105,7 @@ instance (Maplike r i, Maplike r m, Maplike s n) => Maplike (i s) (Branching r s
 
   classify (Branching h t) = let
     u = first (const empty) (classify h)
-    v = bindClassify (\(k,x) -> insert k x) classify (classify t)
+    v = bindClassify (uncurry insert) classify (classify t)
     in u <> v
 
   lookup u (Branching h t) = case minViewWithKey u of
@@ -138,7 +138,7 @@ instance (Maplike r i, Maplike r m, Maplike s n) => Maplike (i s) (Branching r s
     p (Just a) = nonNull <$> a
     in case h of
       Just x  -> Just (flip Branching t <$> f x)
-      Nothing -> fmap (fmap (Branching h)) $ alterMinF (p . alterMinF f) t
+      Nothing -> fmap (Branching h) <$> alterMinF (p . alterMinF f) t
 
   alterMaxF f (Branching h t) = let
     p Nothing  = error "alterMaxF: unexpected Nothing"
@@ -152,7 +152,7 @@ instance (Maplike r i, Maplike r m, Maplike s n) => Maplike (i s) (Branching r s
     p (Just a) = nonNull <$> a
     go u (Branching h t) = case h of
       Just x  -> Just (flip Branching t <$> f u x)
-      Nothing -> fmap (fmap (Branching h)) $ alterMinWithKeyF (\(k,v) -> p . go (insert k v u)) t
+      Nothing -> fmap (Branching h) <$> alterMinWithKeyF (\(k,v) -> p . go (insert k v u)) t
     in go empty
 
   alterMaxWithKeyF f = let
@@ -168,7 +168,7 @@ instance (Maplike r i, Maplike r m, Maplike s n) => Maplike (i s) (Branching r s
     p (Just a) = nonNull <$> a
     go u (Branching h t) = case h of
       Just x  -> Just (flip Branching t <$> f u x)
-      Nothing -> fmap (fmap (Branching h)) $ alterAnyWithKeyF (\(k,v) -> p . go (insert k v u)) t
+      Nothing -> fmap (Branching h) <$> alterAnyWithKeyF (\(k,v) -> p . go (insert k v u)) t
     in go empty
 
   alterAnyF f (Branching h t) = let
@@ -176,7 +176,7 @@ instance (Maplike r i, Maplike r m, Maplike s n) => Maplike (i s) (Branching r s
     p (Just a) = nonNull <$> a
     in case h of
       Just x  -> Just (flip Branching t <$> f x)
-      Nothing -> fmap (fmap (Branching h)) $ alterAnyF (p . alterAnyF f) t
+      Nothing -> fmap (Branching h) <$> alterAnyF (p . alterAnyF f) t
 
   merge l r b = let
     go (Branching h1 t1) (Branching h2 t2) = let

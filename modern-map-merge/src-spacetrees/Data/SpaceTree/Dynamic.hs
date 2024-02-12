@@ -79,29 +79,18 @@ instance (Coordinate b p i, Maplike i m) => Maplike p (DynamicMap p i b m) where
   alterMaxWithKeyF _ (DynamicMap Nothing  _) = Nothing
   alterMaxWithKeyF f (DynamicMap (Just b) m) = fmap (DynamicMap (Just b)) <$> alterMaxWithKeyFT f b m
 
-  -- For efficiency, this has to be reasonably complicated. We do a
-  -- more complicated version of the filtering code, where we extract
-  -- a point at a time and find its subbox. However, we want four
-  -- versions, depending on whether we can reuse the bounding box of
-  -- either argument.
   imergeA onL onR onB = let
-
-    toB b m n = _
-    
-    toL b c m n = _
-    
-    toR b c m n = _
-    
-    toU b c d m n = _
 
     go (DynamicMap Nothing _)  (DynamicMap Nothing _)  = pure empty
     go (DynamicMap (Just b) m) (DynamicMap Nothing _)  = DynamicMap (Just b) <$> runWhenMissing onL m
     go (DynamicMap Nothing _)  (DynamicMap (Just c) n) = DynamicMap (Just c) <$> runWhenMissing onR n
-    go (DynamicMap (Just b) m) (DynamicMap (Just c) n)
-      | b == c       = toB b m n
-      | isSubset c b = toL b c m n
-      | isSubset b c = toR b c m n
-      | otherwise    = toU b c (b <> c) m n
+    go (DynamicMap (Just b) m) (DynamicMap (Just c) n) = let
+      (b', c', d')
+        | b == c       = (Nothing, Nothing, b)
+        | isSubset c b = (Nothing,  Just c, b)
+        | isSubset b c = ( Just b, Nothing, c)
+        | otherwise    = ( Just b,  Just c, b <> c)
+      in imergeAT onL onR onB b' c' d' m n
 
     in go
 

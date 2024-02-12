@@ -47,6 +47,7 @@ internal-libraries:
       - maplike
       - modernmapmerge
       - pqueue                        >= 1.5.0    && < 1.7
+      - vector                        >= 0.13     && < 0.14
       - witherable                    >= 0.4.2    && < 0.5
 
   extra:

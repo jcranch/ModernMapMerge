@@ -115,7 +115,7 @@ instance Monoid e => Witherable (Either e) where
 -- | Methods are good consumers for fusion.
 instance Witherable [] where
   wither f = foldr go (pure []) where
-    go x r = liftA2 (maybe id (:)) (f x) r
+    go x = liftA2 (maybe id (:)) (f x)
   {-# INLINE wither #-}
   witherM f = foldr go (pure []) where
     go x r = f x >>=

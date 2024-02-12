@@ -142,13 +142,13 @@ class (FilterableWithIndex k m, WitherableWithIndex k m) => Maplike k m | m -> k
   anyView = alterAnyF (,Nothing)
 
   getMaxWithKey :: m v -> Maybe (k, v)
-  getMaxWithKey = fmap getConst . alterMaxWithKeyF (\k v -> Const (k, v))
+  getMaxWithKey = fmap getConst . alterMaxWithKeyF (curry Const)
 
   getMinWithKey :: m v -> Maybe (k, v)
-  getMinWithKey = fmap getConst . alterMinWithKeyF (\k v -> Const (k, v))
+  getMinWithKey = fmap getConst . alterMinWithKeyF (curry Const)
 
   getAnyWithKey :: m v -> Maybe (k, v)
-  getAnyWithKey = fmap getConst . alterAnyWithKeyF (\k v -> Const (k, v))
+  getAnyWithKey = fmap getConst . alterAnyWithKeyF (curry Const)
 
   -- Merge two data structures
   -- Some data structures can implement unindexed merging rather more
@@ -207,7 +207,7 @@ instance Maplike () Maybe where
   classify Nothing  = Zero
   classify (Just x) = One () x
   lookup _ m = m
-  alterF a _ m = a m
+  alterF a _ = a
   alter a _ = a
   insert _ a _ = Just a
   minViewWithKey Nothing = Nothing
@@ -375,7 +375,7 @@ instance Maplike k m => Maplike (Maybe k) (OnMaybe k m) where
 
   minViewWithKey (OnMaybe x u) = case x of
     Just y  -> Just ((Nothing, y), OnMaybe Nothing u)
-    Nothing -> fmap (bimap (first Just) (OnMaybe x)) $ minViewWithKey u
+    Nothing -> bimap (first Just) (OnMaybe x) <$> minViewWithKey u
 
   maxViewWithKey (OnMaybe x u) = case maxViewWithKey u of
     Just ((k, y), u') -> Just ((Just k, y), OnMaybe x u')
@@ -596,12 +596,12 @@ instance (Maplike k m, Maplike l n) => Maplike (k,l) (OnPair k l m n) where
   classify (OnPair m) = bindClassify (,) classify $ classify m
 
   alterF f (k,l) (OnPair m) = let
-    g Nothing  = fmap (fmap (singleton l)) $ f Nothing
+    g Nothing  = fmap (singleton l) <$> f Nothing
     g (Just n) = nonNull <$> alterF f l n
     in OnPair <$> alterF g k m
 
   alter f (k,l) (OnPair m) = let
-    g Nothing  = fmap (singleton l) $ f Nothing
+    g Nothing  = singleton l <$> f Nothing
     g (Just n) = nonNull $ alter f l n
     in OnPair $ alter g k m
 

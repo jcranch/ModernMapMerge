@@ -3,6 +3,7 @@
       FlexibleContexts,
       FlexibleInstances,
       FunctionalDependencies,
+      GeneralizedNewtypeDeriving,
       MultiParamTypeClasses,
       QuantifiedConstraints
   #-}
@@ -11,14 +12,18 @@
 -- all instructions
 module Data.SpaceTree.Explicit where
 
+import Control.Monad (join)
 import Data.Complex (Complex(..))
 import Data.Foldable.WithIndex
 import Data.Functor.Const (Const(..))
+import Data.Functor.Identity (Identity(..))
 import Data.Functor.WithIndex
 import qualified Data.PQueue.Prio.Min as Q
 import Data.Monoid (Sum(..))
 import Data.Ord (Down(..))
 import Data.Traversable.WithIndex
+import Data.Vector (Vector)
+import qualified Data.Vector as V
 import Witherable
 
 import Data.Maplike
@@ -47,11 +52,14 @@ sizeT Empty           = 0
 sizeT (Singleton _ _) = 1
 sizeT (Branch n _)    = n
 
+makeBranchUnsafe :: (Maplike i m) => m (SpaceTree p i b m v) -> SpaceTree p i b m v
+makeBranchUnsafe m = Branch (getSum $ foldMap (Sum . sizeT) m) m
+
 makeBranch :: (Maplike i m) => m (SpaceTree p i b m v) -> SpaceTree p i b m v
 makeBranch m = case bindClassify (const id) classifyT (classify m) of
   Zero    -> Empty
   One p v -> Singleton p v
-  Many    -> Branch (getSum $ foldMap (Sum . sizeT) m) m
+  Many    -> makeBranchUnsafe m
 
 nullT :: SpaceTree p i b m v -> Bool
 nullT Empty = True
@@ -99,6 +107,16 @@ alterFT f p = let
     h (Just m) = nonNullT <$> go b' m
     in makeBranch <$> alterF h i u
   in go
+
+maybeInsertT :: (Coordinate b p i,
+                 Maplike i m)
+             => p
+             -> b
+             -> Maybe v
+             -> SpaceTree p i b m v
+             -> SpaceTree p i b m v
+maybeInsertT _ _ Nothing    = id
+maybeInsertT p b v@(Just _) = runIdentity . alterFT (const $ Identity v) p b
 
 -- | I think I need to be careful with strictness in this algorithm
 alterBestWithKeyFT :: (Coordinate b p i,
@@ -267,7 +285,7 @@ instance Traversable m => TraversableWithIndex p (SpaceTree p i b m) where
 instance (Maplike i m) => Filterable (SpaceTree p i b m) where
   mapMaybe _ Empty = Empty
   mapMaybe f (Singleton p a) = maybeSingletonT p (f a)
-  mapMaybe f (Branch _ u) = makeBranch $ fmap (mapMaybe f) u
+  mapMaybe f (Branch _ u) = makeBranch $ mapMaybe (nonNullT . mapMaybe f) u
 
 instance (Maplike i m) => FilterableWithIndex p (SpaceTree p i b m) where
   imapMaybe _ Empty = Empty
@@ -283,6 +301,24 @@ instance (Maplike i m) => WitherableWithIndex p (SpaceTree p i b m) where
   iwither _ Empty = pure Empty
   iwither f (Singleton p a) = maybeSingletonT p <$> f p a
   iwither f (Branch _ u) = makeBranch <$> wither (fmap nonNullT . iwither f) u
+
+
+-- | A shortcutting map
+transformT :: (Coordinate b p i,
+               Maplike i m,
+               Applicative f)
+           => (p -> u -> f (Maybe v))
+           -> (b -> Maybe (WhenMissing f p u v))
+           -> b
+           -> SpaceTree p i b m u
+           -> f (SpaceTree p i b m v)
+transformT f g = let
+  go _ Empty = pure Empty
+  go _ (Singleton p u) = maybeSingletonT p <$> f p u
+  go b m@(Branch _ r) = case g b of
+    Just t  -> runWhenMissing t m
+    Nothing -> makeBranch <$> iwither (\i -> fmap nonNullT . go (subbox b i)) r
+  in go
 
 
 fastFilter :: (Coordinate b p i, Maplike i m) => (p -> Bool) -> (b -> Maybe Bool) -> b -> SpaceTree p i b m v -> SpaceTree p i b m v
@@ -329,10 +365,185 @@ fastFilterA f g = let
     in h =<< g b
   in go
 
+
 extent :: (Coordinate b p i, Foldable m) => SpaceTree p i b m v -> Maybe b
 extent = ifoldMap (\p _ -> Just (pointBox p))
 
 
+data Ingredient p i b m v = Point p v
+                          | Chunk b Int (m (SpaceTree p i b m v))
+
+instance Functor m => Functor (Ingredient p i b m) where
+  fmap f (Point p v) = Point p (f v)
+  fmap f (Chunk b n m) = Chunk b n (fmap f <$> m)
+
+instance Functor m => FunctorWithIndex p (Ingredient p i b m) where
+  imap f (Point p v) = Point p (f p v)
+  imap f (Chunk b n m) = Chunk b n (imap f <$> m)
+
+instance Foldable m => Foldable (Ingredient p i b m) where
+  foldMap f (Point _ v) = f v
+  foldMap f (Chunk _ _ m) = foldMap (foldMap f) m
+
+instance Foldable m => FoldableWithIndex p (Ingredient p i b m) where
+  ifoldMap f (Point p v) = f p v
+  ifoldMap f (Chunk _ _ m) = foldMap (ifoldMap f) m
+
+instance Traversable m => Traversable (Ingredient p i b m) where
+  traverse f (Point p v) = Point p <$> f v
+  traverse f (Chunk b n m) = Chunk b n <$> traverse (traverse f) m
+
+instance Traversable m => TraversableWithIndex p (Ingredient p i b m) where
+  itraverse f (Point p v) = Point p <$> f p v
+  itraverse f (Chunk b n m) = Chunk b n <$> traverse (itraverse f) m
+
+
+-- | Ingredients are bits of spacetree. All algorithms preserve the
+-- property that the components are spatially disjoint.
+newtype Ingredients p i b m v = Ingredients {
+  ingredients :: Vector (Ingredient p i b m v)
+} deriving (Functor, Semigroup, Monoid)
+
+instance Functor m => FunctorWithIndex p (Ingredients p i b m) where
+  imap f (Ingredients a) = Ingredients (imap f <$> a)
+
+instance Foldable m => Foldable (Ingredients p i b m) where
+  foldMap f (Ingredients a) = foldMap (foldMap f) a
+
+instance Foldable m => FoldableWithIndex p (Ingredients p i b m) where
+  ifoldMap f (Ingredients a) = foldMap (ifoldMap f) a
+
+instance Traversable m => Traversable (Ingredients p i b m) where
+  traverse f (Ingredients a) = Ingredients <$> traverse (traverse f) a
+
+instance Traversable m => TraversableWithIndex p (Ingredients p i b m) where
+  itraverse f (Ingredients a) = Ingredients <$> traverse (itraverse f) a
+
+instance Maplike i m => Filterable (Ingredients p i b m) where
+  mapMaybe f (Ingredients a) = let
+    g (Point p u) = case f u of
+      Just v  -> pure (Point p v)
+      Nothing -> V.empty
+    g (Chunk b _ m) = makeIngredients' b . makeBranch $ mapMaybe (nonNullT . mapMaybe f) m
+    in Ingredients (g =<< a)
+
+instance Maplike i m => FilterableWithIndex p (Ingredients p i b m) where
+  imapMaybe f (Ingredients a) = let
+    g (Point p u) = case f p u of
+      Just v  -> pure (Point p v)
+      Nothing -> V.empty
+    g (Chunk b _ m) = makeIngredients' b . makeBranch $ mapMaybe (nonNullT . imapMaybe f) m
+    in Ingredients (g =<< a)
+
+instance Maplike i m => Witherable (Ingredients p i b m) where
+  wither f (Ingredients a) = let
+    g (Point p u) = let
+      h (Just v) = pure (Point p v)
+      h Nothing  = V.empty
+      in h <$> f u
+    g (Chunk b _ m) = makeIngredients' b . makeBranch <$> wither (fmap nonNullT . wither f) m
+    in Ingredients . join <$> traverse g a
+
+instance Maplike i m => WitherableWithIndex p (Ingredients p i b m) where
+  iwither f (Ingredients a) = let
+    g (Point p u) = let
+      h (Just v) = pure (Point p v)
+      h Nothing  = V.empty
+      in h <$> f p u
+    g (Chunk b _ m) = makeIngredients' b . makeBranch <$> wither (fmap nonNullT . iwither f) m
+    in Ingredients . join <$> traverse g a
+
+pureI :: Ingredient p i b m v -> Ingredients p i b m v
+pureI = Ingredients . pure
+
+emptyI :: Ingredients p i b m v
+emptyI = Ingredients V.empty
+
+makeIngredients' :: b -> SpaceTree p i b m v -> Vector (Ingredient p i b m v)
+makeIngredients' _ Empty           = V.empty
+makeIngredients' _ (Singleton p v) = pure $ Point p v
+makeIngredients' b (Branch n m)    = pure $ Chunk b n m
+
+makeIngredients :: b
+                -> SpaceTree p i b m v
+                -> Ingredients p i b m v
+makeIngredients b = Ingredients . makeIngredients' b
+
+partitionIngredients :: (Coordinate b p i,
+                         Maplike i m)
+                     => b
+                     -> Ingredients p i b m v
+                     -> (Ingredients p i b m v, Ingredients p i b m v)
+partitionIngredients b = let
+  f a@(Point p _)
+    | containsPoint b p = (pureI a, emptyI)
+    | otherwise         = (emptyI, pureI a)
+  f c@(Chunk b' _ m)
+    | isSubset b' b = (pureI c, emptyI)
+    | disjoint b' b = (emptyI, pureI c)
+    | otherwise     = let
+        g i = foldMap f . ingredients . makeIngredients (subbox b' i)
+        in ifoldMap g m
+  in foldMap f . ingredients
+
+pointFromIngredients :: (Coordinate b p i,
+                         Maplike i m)
+                     => Ingredients p i b m v
+                     -> Maybe p
+pointFromIngredients (Ingredients v) = let
+  f (Point p _) = p
+  f (Chunk _ n m) = case alterAnyWithKeyFT (\p _ -> Const p) (Branch n m) of
+    Just (Const p) -> p
+    Nothing        -> error "pointFromIngredients: should find a point in a chunk"
+  in f <$> (v V.!? 0)
+
+subdivideIngredients :: (Coordinate b p i,
+                         Maplike i m)
+                     => b
+                     -> Ingredients p i b m v
+                     -> m (b, Ingredients p i b m v)
+subdivideIngredients b = let
+  go a = case pointFromIngredients a of
+    Nothing -> []
+    Just p  -> let
+      (i, b') = narrow b p
+      (r, a') = partitionIngredients b' a
+      in (i,(b', r)):go a'
+  in fromFold . go
+
+classifyIngredients :: Ingredients p i b m v -> Classified p v
+classifyIngredients (Ingredients a) = case V.uncons a of
+  Nothing -> Zero
+  Just (Point p v, a')
+    | V.null a' -> One p v
+    | otherwise -> Many
+
+assembleIngredients :: (Coordinate b p i,
+                        Maplike i m)
+                    => b
+                    -> Ingredients p i b m v
+                    -> SpaceTree p i b m v
+assembleIngredients b a = case classifyIngredients a of
+  Zero    -> Empty
+  One p v -> Singleton p v
+  Many    -> makeBranchUnsafe . fmap (uncurry assembleIngredients) $ subdivideIngredients b a
+
+
+-- | Change bounding box, assume (and do not check) that all points
+-- are in the new bounding box
+reboundT :: (Coordinate b p i,
+             Maplike i m)
+         => b
+         -> b
+         -> SpaceTree p i b m v
+         -> SpaceTree p i b m v
+reboundT old new = assembleIngredients new . makeIngredients old
+
+
+{-
+
+-- Probably no longer needed
+{-
 -- | Merge, assuming all trees involved have coinciding bounding boxes
 imergeSameT :: (Coordinate b p i,
                 Maplike i m)
@@ -405,36 +616,84 @@ imergeSameAT l r t = let
     in pair b u1 (singleton i2 s2)
 
   in go
+-}
 
 
+-- | A general merge function, where we may have to rebound either or
+-- both of the maps.
+imergeAT :: (Coordinate b p i,
+             Maplike i m,
+             Applicative f)
+         => WhenMissing f p u w
+         -> WhenMissing f p v w
+         -> WhenMatched f p u v w
+         -> Maybe b
+         -> Maybe b
+         -> b
+         -> SpaceTree p i b m u
+         -> SpaceTree p i b m v
+         -> f (SpaceTree p i b m w)
+imergeAT onL onR onB = let
 
--- | Change bounding box, assume (and do not check) that all points
--- are in the new bounding box
-fastReboundT :: (Coordinate b p i,
-                 Maplike i m) => b -> b -> SpaceTree p i b m v -> SpaceTree p i b m v
-fastReboundT old new = let
-  go t = case alterAnyWithKeyFT (\p _ -> Const p) t of
-    Nothing        -> []
-    Just (Const p) -> let
-      (i, new') = narrow new p
-      (u, t')   = clipReboundT old new' t
-      in (i,u):go t'
-  in makeBranch . fromFold . go
+  go Nothing _ _ m Empty = runWhenMissing onL m
 
--- | Return parts contained within the new box, and the
--- remainder.
-clipReboundT :: (Coordinate b p i,
-                 Maplike i m)
-             => b
-             -> b
-             -> SpaceTree p i b m v
-             -> (SpaceTree p i b m v, SpaceTree p i b m v)
-clipReboundT old new t = let
-  g b
-    | isSubset b new = Just True
-    | disjoint b new = Just False
-    | otherwise      = Nothing
-  (ins, outs) = fastPartition (containsPoint new) g old t
-  in (fastReboundT old new ins, outs)
+  go _ Nothing _ Empty n = runWhenMissing onR n
 
+  go (Just b) _ d m Empty = reboundT b d <$> runWhenMissing onL m
 
+  go _ (Just c) d Empty n = reboundT c d <$> runWhenMissing onR n
+
+  go _ _ d (Singleton p u) (Singleton q v)
+    | p == q    = maybeSingletonT p <$> matchedKey onB p u v
+    | otherwise = liftA2 (maybeDoubleton2 d p q) (missingKey onL p u) (missingKey onR q v)
+
+  go Nothing Nothing d (Branch _ m) (Branch _ n) = let
+    pair = let
+      onl = utraverseMaybeMissing (fmap nonNullT . runWhenMissing onL)
+      onr = utraverseMaybeMissing (fmap nonNullT . runWhenMissing onR)
+      onb i u v = nonNullT <$> go Nothing Nothing (subbox d i) u v
+      in imergeA onl onr (WhenMatched onb)
+    in makeBranch <$> pair m n
+
+  go (Just b) Nothing d r (Branch _ n) = let
+    pair = let
+      onl = utraverseMaybeMissing (fmap nonNullT . _)
+      onr = utraverseMaybeMissing (fmap nonNullT . runWhenMissing onR)
+      -- onb :: i -> (a, Ingredients p i b m u) -> SpaceTree p i b m v -> f (Maybe (SpaceTree p i b m w))
+      onb _ (b', u) n' = nonNullT <$> _
+      in imergeA onl onr (WhenMatched onb)
+    in makeBranch <$> _ (subdivideIngredients d $ makeIngredients b r) n
+
+{-
+ 
+  go _ Nothing d r@(Singleton p _) (Branch _ n) = let
+    (i, _) = narrow d p
+    in pair d (singleton i r) n
+  go Nothing _ d (Branch _ m) s@(Singleton q _) = let
+    (j, _) = narrow d q
+    in pair d m (singleton j s)
+
+  go _ (Just c) d (Singleton p u) n
+    | containsPoint c p = let
+        f q v
+          | p == q    = matchedKey onB p u v
+          | otherwise = missingKey onR q v
+        g c'
+          | containsPoint c' p = Nothing
+          | otherwise          = Just onR
+        in reboundT c d <$> transformT f g c n
+    | otherwise = liftA2 (maybeInsertT p d) (missingKey onL p u) (reboundT c d <$> runWhenMissing onR n)
+  go (Just b) _ d m (Singleton q v)
+    | containsPoint b q = let
+        f p u
+          | p == q    = matchedKey onB p u v
+          | otherwise = missingKey onL p u
+        g b'
+          | containsPoint b' q = Nothing
+          | otherwise          = Just onL
+        in reboundT b d <$> transformT f g b m
+    | otherwise = liftA2 (maybeInsertT q d) (missingKey onR q v) (reboundT b d <$> runWhenMissing onL m)
+-}
+  in go
+
+-}

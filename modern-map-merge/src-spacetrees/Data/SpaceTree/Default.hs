@@ -56,6 +56,6 @@ instance (Ord p, DefaultCoordinate b p i, Maplike i m) => Maplike p (DefaultMap 
 
   alterF f p (DefaultMap m) = DefaultMap <$> alterFT f p outer m
 
-  imerge l r t (DefaultMap m) (DefaultMap n) = DefaultMap $ imergeSameT l r t outer m n
+  imerge l r t (DefaultMap m) (DefaultMap n) = DefaultMap $ imergeT l r t Nothing Nothing outer m n
 
-  imergeA l r t (DefaultMap m) (DefaultMap n) = DefaultMap <$> imergeSameAT l r t outer m n
+  imergeA l r t (DefaultMap m) (DefaultMap n) = DefaultMap <$> imergeAT l r t Nothing Nothing outer m n

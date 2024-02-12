@@ -163,7 +163,7 @@ zipWithMaybeAMatched :: (k -> x -> y -> f (Maybe z)) -> WhenMatched f k x y z
 zipWithMaybeAMatched = WhenMatched
 
 zipWithAMatched :: Functor f => (k -> x -> y -> f z) -> WhenMatched f k x y z
-zipWithAMatched f = WhenMatched (\i x y -> fmap Just $ f i x y)
+zipWithAMatched f = WhenMatched (\i x y -> Just <$> f i x y)
 
 zipWithMaybeMatched :: Applicative f => (k -> x -> y -> Maybe z) -> WhenMatched f k x y z
 zipWithMaybeMatched f = WhenMatched (\i x y -> pure $ f i x y)
