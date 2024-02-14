@@ -502,21 +502,23 @@ subdivideIngredients :: (Coordinate b p i,
                      => b
                      -> Ingredients p i b m v
                      -> m (b, Ingredients p i b m v)
-subdivideIngredients b = let
+subdivideIngredients b = _ {- let
   go a = case pointFromIngredients a of
     Nothing -> []
     Just p  -> let
       (i, b') = narrow b p
       (r, a') = partitionIngredients b' a
       in (i,(b', r)):go a'
-  in fromFold . go
-
+  in fromFold . go -- I don't think this is right - we can generate multiple entries for i, which we should reduce monoidally (also similar function below)
+-}
+  
 classifyIngredients :: Ingredients p i b m v -> Classified p v
 classifyIngredients (Ingredients a) = case V.uncons a of
-  Nothing -> Zero
+  Nothing               -> Zero
   Just (Point p v, a')
-    | V.null a' -> One p v
-    | otherwise -> Many
+    | V.null a'         -> One p v
+    | otherwise         -> Many
+  Just (Chunk _ _ _, _) -> Many
 
 assembleIngredients :: (Coordinate b p i,
                         Maplike i m)
@@ -540,44 +542,75 @@ reboundT :: (Coordinate b p i,
 reboundT old new = assembleIngredients new . makeIngredients old
 
 
-{-
 
--- Probably no longer needed
-{-
--- | Merge, assuming all trees involved have coinciding bounding boxes
-imergeSameT :: (Coordinate b p i,
-                Maplike i m)
-            => SimpleWhenMissing p u w
-            -> SimpleWhenMissing p v w
-            -> SimpleWhenMatched p u v w
-            -> b
-            -> SpaceTree p i b m u
-            -> SpaceTree p i b m v
-            -> SpaceTree p i b m w
-imergeSameT l r t = let
+-- | An abstraction, unlikely to be useful to the end user: its aim is
+-- to stop us having to write four different merge algorithms based on
+-- which of the arguments need resizing.
+class Mergee c p i b m | c -> p, c -> i, c -> b, c -> m where
+  classifyMergee :: c v -> Classified p v
+  subdivideMergee :: b -> c v -> m (c v)
+  runWhenMissingMergee :: WhenMissing f p u v -> b -> c u -> f (SpaceTree p i b m v)
 
-  pair b u1 u2 = let
-    l' = umapMaybeMissing (nonNullT . runSimpleWhenMissing l)
-    r' = umapMaybeMissing (nonNullT . runSimpleWhenMissing r)
-    t' i v1 v2 = nonNullT $ go (subbox b i) v1 v2
-    in makeBranch $ imerge l' r' (zipWithMaybeMatched t') u1 u2
+instance Maplike i m => Mergee (SpaceTree p i b m) p i b m where
+  classifyMergee = classifyT
+  subdivideMergee _ Empty           = error "subdivideMergee: should not be called on Empty"
+  subdivideMergee _ (Singleton _ _) = error "subdivideMergee: should not be called on Singleton"
+  subdivideMergee _ (Branch _ m)    = m
+  runWhenMissingMergee t _ x = runWhenMissing t x
 
-  go _ Empty               m2                  = runSimpleWhenMissing r m2
-  go _ m1                  Empty               = runSimpleWhenMissing l m1
-  go b (Singleton p1 v1)   (Singleton p2 v2)
-    | p1 == p2                                 = maybeSingletonT p1 $ simpleMatchedKey t p1 v1 v2
-    | otherwise                                = maybeDoubleton2 b p1 p2
-                                                   (simpleMissingKey l p1 v1)
-                                                   (simpleMissingKey r p2 v2)
-  go b (Branch _ u1)       (Branch _ u2)       = pair b u1 u2
-  go b s1@(Singleton p1 _) (Branch _ u2)       = let
-    (i1, _) = narrow b p1
-    in pair b (singleton i1 s1) u2
-  go b (Branch _ u1)       s2@(Singleton p2 _) = let
-    (i2, _) = narrow b p2
-    in pair b u1 (singleton i2 s2)
+instance Mergee (Ingredients p i b m) p i b m where
+  classifyMergee = classifyIngredients
+  subdivideMergee b x = _ -- cf subdivideIngredients above
+  runWhenMissingMergee t b x = _
 
+-- | A very general merge algorithm, to provide support for neither,
+-- either or both arguments to need resizing.
+imergeAT :: (Applicative f,
+             Coordinate b p i,
+             Maplike i m, 
+             Mergee c p i b m,
+             Mergee d p i b m)
+         => WhenMissing f p u w
+         -> WhenMissing f p v w
+         -> WhenMatched f p u v w
+         -> b
+         -> c u
+         -> d v
+         -> f (SpaceTree p i b m w)
+imergeAT onL onR onB = let
+
+  go b x y = case (classifyMergee x, classifyMergee y) of
+    (Zero, Zero) -> pure Empty
+    (One p u, Zero) -> maybeSingletonT p <$> missingKey onL p u
+    (Zero, One q v) -> maybeSingletonT q <$> missingKey onR q v
+    (One p u, One q v)
+      | p == q    -> maybeSingletonT p <$> matchedKey onB p u v
+      | otherwise -> liftA2 (maybeDoubleton2 b p q) (missingKey onL p u) (missingKey onR q v)
+    (Many, Zero) -> runWhenMissingMergee onL b x
+    (Zero, Many) -> runWhenMissingMergee onR b y
+    (Many, Many) -> let
+      onl = traverseMaybeMissing (\i u -> nonNullT <$> runWhenMissingMergee onL (subbox b i) u)
+      onr = traverseMaybeMissing (\i v -> nonNullT <$> runWhenMissingMergee onR (subbox b i) v)
+      onb i u v = nonNullT <$> go (subbox b i) u v
+      pair = imergeA onl onr (WhenMatched onb)
+      in makeBranch <$> pair (subdivideMergee b x) (subdivideMergee b y)
+    (Many, One q _) -> let
+      f i z = let
+        b' = subbox b i
+        in if containsPoint b' q
+           then go b' z y
+           else runWhenMissingMergee onL b' z
+      in makeBranch <$> itraverse f (subdivideMergee b x)
+    (One p _, Many) -> let
+      f i z = let
+        b' = subbox b i
+        in if containsPoint b' p
+           then go b' x z
+           else runWhenMissingMergee onR b' z
+      in makeBranch <$> itraverse f (subdivideMergee b y)
   in go
+
+{-
 
 
 -- | Merge, assuming all trees involved have coinciding bounding boxes
@@ -616,7 +649,6 @@ imergeSameAT l r t = let
     in pair b u1 (singleton i2 s2)
 
   in go
--}
 
 
 -- | A general merge function, where we may have to rebound either or
@@ -664,8 +696,7 @@ imergeAT onL onR onB = let
       in imergeA onl onr (WhenMatched onb)
     in makeBranch <$> _ (subdivideIngredients d $ makeIngredients b r) n
 
-{-
- 
+
   go _ Nothing d r@(Singleton p _) (Branch _ n) = let
     (i, _) = narrow d p
     in pair d (singleton i r) n
@@ -693,7 +724,5 @@ imergeAT onL onR onB = let
           | otherwise          = Just onL
         in reboundT b d <$> transformT f g b m
     | otherwise = liftA2 (maybeInsertT q d) (missingKey onR q v) (reboundT b d <$> runWhenMissing onL m)
--}
   in go
-
 -}
