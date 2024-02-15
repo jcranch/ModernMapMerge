@@ -459,6 +459,11 @@ pureI = Ingredients . pure
 emptyI :: Ingredients p i b m v
 emptyI = Ingredients V.empty
 
+makeIngredient :: b -> SpaceTree p i b m v -> Maybe (Ingredient p i b m v)
+makeIngredient _ Empty           = Nothing
+makeIngredient _ (Singleton p v) = Just $ Point p v
+makeIngredient b (Branch n m)    = Just $ Chunk b n m
+
 makeIngredients' :: b -> SpaceTree p i b m v -> Vector (Ingredient p i b m v)
 makeIngredients' _ Empty           = V.empty
 makeIngredients' _ (Singleton p v) = pure $ Point p v
@@ -569,7 +574,7 @@ instance (Maplike i m, Coordinate b p i) => Mergee (Ingredients p i b m) p i b m
     in fromFold . go
   runWhenMissingMergee t b = let
     f (Point p v) = fmap (Point p) <$> missingKey t p v
-    f (Chunk b _ m) = _ $ runWhenMissing t m
+    f (Chunk a n m) = makeIngredient a <$> runWhenMissing t (Branch n m)
     in fmap (assembleIngredients b . Ingredients) . wither f . ingredients
 
 -- | A very general merge algorithm, to provide support for neither,
