@@ -502,16 +502,15 @@ subdivideIngredients :: (Coordinate b p i,
                      => b
                      -> Ingredients p i b m v
                      -> m (b, Ingredients p i b m v)
-subdivideIngredients b = _ {- let
+subdivideIngredients b = let
   go a = case pointFromIngredients a of
     Nothing -> []
     Just p  -> let
       (i, b') = narrow b p
       (r, a') = partitionIngredients b' a
       in (i,(b', r)):go a'
-  in fromFold . go -- I don't think this is right - we can generate multiple entries for i, which we should reduce monoidally (also similar function below)
--}
-  
+  in fromFold . go
+
 classifyIngredients :: Ingredients p i b m v -> Classified p v
 classifyIngredients (Ingredients a) = case V.uncons a of
   Nothing               -> Zero
@@ -549,7 +548,7 @@ reboundT old new = assembleIngredients new . makeIngredients old
 class Mergee c p i b m | c -> p, c -> i, c -> b, c -> m where
   classifyMergee :: c v -> Classified p v
   subdivideMergee :: b -> c v -> m (c v)
-  runWhenMissingMergee :: WhenMissing f p u v -> b -> c u -> f (SpaceTree p i b m v)
+  runWhenMissingMergee :: Applicative f => WhenMissing f p u v -> b -> c u -> f (SpaceTree p i b m v)
 
 instance Maplike i m => Mergee (SpaceTree p i b m) p i b m where
   classifyMergee = classifyT
@@ -558,16 +557,26 @@ instance Maplike i m => Mergee (SpaceTree p i b m) p i b m where
   subdivideMergee _ (Branch _ m)    = m
   runWhenMissingMergee t _ x = runWhenMissing t x
 
-instance Mergee (Ingredients p i b m) p i b m where
+instance (Maplike i m, Coordinate b p i) => Mergee (Ingredients p i b m) p i b m where
   classifyMergee = classifyIngredients
-  subdivideMergee b x = _ -- cf subdivideIngredients above
-  runWhenMissingMergee t b x = _
+  subdivideMergee b = let
+    go a = case pointFromIngredients a of
+      Nothing -> []
+      Just p  -> let
+        (i, b') = narrow b p
+        (r, a') = partitionIngredients b' a
+        in (i,r):go a'
+    in fromFold . go
+  runWhenMissingMergee t b = let
+    f (Point p v) = fmap (Point p) <$> missingKey t p v
+    f (Chunk b _ m) = _ $ runWhenMissing t m
+    in fmap (assembleIngredients b . Ingredients) . wither f . ingredients
 
 -- | A very general merge algorithm, to provide support for neither,
 -- either or both arguments to need resizing.
 imergeAT :: (Applicative f,
              Coordinate b p i,
-             Maplike i m, 
+             Maplike i m,
              Mergee c p i b m,
              Mergee d p i b m)
          => WhenMissing f p u w
