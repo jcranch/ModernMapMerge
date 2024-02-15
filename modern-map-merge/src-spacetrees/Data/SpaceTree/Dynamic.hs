@@ -79,19 +79,30 @@ instance (Coordinate b p i, Maplike i m) => Maplike p (DynamicMap p i b m) where
   alterMaxWithKeyF _ (DynamicMap Nothing  _) = Nothing
   alterMaxWithKeyF f (DynamicMap (Just b) m) = fmap (DynamicMap (Just b)) <$> alterMaxWithKeyFT f b m
 
-  imergeA onL onR onB = let
+  imerge onL onR onB = let
+    go (DynamicMap Nothing _)  (DynamicMap Nothing _)  = empty
+    go (DynamicMap (Just b) m) (DynamicMap Nothing _)  = DynamicMap (Just b) $ runSimpleWhenMissing onL m
+    go (DynamicMap Nothing _)  (DynamicMap (Just c) n) = DynamicMap (Just c) $ runSimpleWhenMissing onR n
+    go (DynamicMap (Just b) m) (DynamicMap (Just c) n)
+      | b == c       = DynamicMap (Just b) $ imergeT onL onR onB b m n
+      | isSubset c b = DynamicMap (Just b) $ imergeT onL onR onB b m (makeIngredients c n)
+      | isSubset b c = DynamicMap (Just c) $ imergeT onL onR onB c (makeIngredients b m) n
+      | otherwise    = let
+          d = b <> c
+          in DynamicMap (Just d) $ imergeT onL onR onB d (makeIngredients b m) (makeIngredients c n)
+    in go
 
+  imergeA onL onR onB = let
     go (DynamicMap Nothing _)  (DynamicMap Nothing _)  = pure empty
     go (DynamicMap (Just b) m) (DynamicMap Nothing _)  = DynamicMap (Just b) <$> runWhenMissing onL m
     go (DynamicMap Nothing _)  (DynamicMap (Just c) n) = DynamicMap (Just c) <$> runWhenMissing onR n
-    go (DynamicMap (Just b) m) (DynamicMap (Just c) n) = let
-      (b', c', d')
-        | b == c       = (Nothing, Nothing, b)
-        | isSubset c b = (Nothing,  Just c, b)
-        | isSubset b c = ( Just b, Nothing, c)
-        | otherwise    = ( Just b,  Just c, b <> c)
-      in imergeAT onL onR onB b' c' d' m n
-
+    go (DynamicMap (Just b) m) (DynamicMap (Just c) n)
+      | b == c       = DynamicMap (Just b) <$> imergeAT onL onR onB b m n
+      | isSubset c b = DynamicMap (Just b) <$> imergeAT onL onR onB b m (makeIngredients c n)
+      | isSubset b c = DynamicMap (Just c) <$> imergeAT onL onR onB c (makeIngredients b m) n
+      | otherwise    = let
+          d = b <> c
+          in DynamicMap (Just d) <$> imergeAT onL onR onB d (makeIngredients b m) (makeIngredients c n)
     in go
 
 -- | What's the tightest possible bounding box?

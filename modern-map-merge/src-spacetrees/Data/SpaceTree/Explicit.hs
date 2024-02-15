@@ -554,13 +554,15 @@ class Mergee c p i b m | c -> p, c -> i, c -> b, c -> m where
   classifyMergee :: c v -> Classified p v
   subdivideMergee :: b -> c v -> m (c v)
   runWhenMissingMergee :: Applicative f => WhenMissing f p u v -> b -> c u -> f (SpaceTree p i b m v)
+  simpleRunWhenMissingMergee :: SimpleWhenMissing p u v -> b -> c u -> SpaceTree p i b m v
 
 instance Maplike i m => Mergee (SpaceTree p i b m) p i b m where
   classifyMergee = classifyT
   subdivideMergee _ Empty           = error "subdivideMergee: should not be called on Empty"
   subdivideMergee _ (Singleton _ _) = error "subdivideMergee: should not be called on Singleton"
   subdivideMergee _ (Branch _ m)    = m
-  runWhenMissingMergee t _ x = runWhenMissing t x
+  runWhenMissingMergee t _ = runWhenMissing t
+  simpleRunWhenMissingMergee t _ = runIdentity . runWhenMissing t
 
 instance (Maplike i m, Coordinate b p i) => Mergee (Ingredients p i b m) p i b m where
   classifyMergee = classifyIngredients
@@ -576,9 +578,61 @@ instance (Maplike i m, Coordinate b p i) => Mergee (Ingredients p i b m) p i b m
     f (Point p v) = fmap (Point p) <$> missingKey t p v
     f (Chunk a n m) = makeIngredient a <$> runWhenMissing t (Branch n m)
     in fmap (assembleIngredients b . Ingredients) . wither f . ingredients
+  simpleRunWhenMissingMergee t b = let
+    f (Point p v) = Point p <$> simpleMissingKey t p v
+    f (Chunk a n m) = makeIngredient a $ runSimpleWhenMissing t (Branch n m)
+    in assembleIngredients b . Ingredients . mapMaybe f . ingredients
+
 
 -- | A very general merge algorithm, to provide support for neither,
 -- either or both arguments to need resizing.
+imergeT :: (Coordinate b p i,
+            Maplike i m,
+            Mergee c p i b m,
+            Mergee d p i b m)
+         => SimpleWhenMissing p u w
+         -> SimpleWhenMissing p v w
+         -> SimpleWhenMatched p u v w
+         -> b
+         -> c u
+         -> d v
+         -> SpaceTree p i b m w
+imergeT onL onR onB = let
+
+  go b x y = case (classifyMergee x, classifyMergee y) of
+    (Zero, Zero) -> Empty
+    (One p u, Zero) -> maybeSingletonT p $ simpleMissingKey onL p u
+    (Zero, One q v) -> maybeSingletonT q $ simpleMissingKey onR q v
+    (One p u, One q v)
+      | p == q    -> maybeSingletonT p $ simpleMatchedKey onB p u v
+      | otherwise -> maybeDoubleton2 b p q (simpleMissingKey onL p u) (simpleMissingKey onR q v)
+    (Many, Zero) -> simpleRunWhenMissingMergee onL b x
+    (Zero, Many) -> simpleRunWhenMissingMergee onR b y
+    (Many, Many) -> let
+      onl = mapMaybeMissing (\i u -> nonNullT $ simpleRunWhenMissingMergee onL (subbox b i) u)
+      onr = mapMaybeMissing (\i v -> nonNullT $ simpleRunWhenMissingMergee onR (subbox b i) v)
+      onb i u v = nonNullT $ go (subbox b i) u v
+      pair = imerge onl onr (zipWithMaybeMatched onb)
+      in makeBranch $ pair (subdivideMergee b x) (subdivideMergee b y)
+    (Many, One q _) -> let
+      f i z = let
+        b' = subbox b i
+        in if containsPoint b' q
+           then go b' z y
+           else simpleRunWhenMissingMergee onL b' z
+      in makeBranch $ imap f (subdivideMergee b x)
+    (One p _, Many) -> let
+      f i z = let
+        b' = subbox b i
+        in if containsPoint b' p
+           then go b' x z
+           else simpleRunWhenMissingMergee onR b' z
+      in makeBranch $ imap f (subdivideMergee b y)
+  in go
+
+
+-- | A very general applicative-valued merge algorithm, to provide
+-- support for neither, either or both arguments to need resizing.
 imergeAT :: (Applicative f,
              Coordinate b p i,
              Maplike i m,
@@ -623,120 +677,3 @@ imergeAT onL onR onB = let
            else runWhenMissingMergee onR b' z
       in makeBranch <$> itraverse f (subdivideMergee b y)
   in go
-
-{-
-
-
--- | Merge, assuming all trees involved have coinciding bounding boxes
-imergeSameAT :: (Coordinate b p i,
-                 Maplike i m,
-                 Applicative f)
-             => WhenMissing f p u w
-             -> WhenMissing f p v w
-             -> WhenMatched f p u v w
-             -> b
-             -> SpaceTree p i b m u
-             -> SpaceTree p i b m v
-             -> f (SpaceTree p i b m w)
-imergeSameAT l r t = let
-
-  pair b u1 u2 = let
-    l' = utraverseMaybeMissing (fmap nonNullT . runWhenMissing l)
-    r' = utraverseMaybeMissing (fmap nonNullT . runWhenMissing r)
-    t' i v1 v2 = nonNullT <$> go (subbox b i) v1 v2
-    in makeBranch <$> imergeA l' r' (WhenMatched t') u1 u2
-
-  go _ Empty               m2                  = runWhenMissing r m2
-  go _ m1                  Empty               = runWhenMissing l m1
-  go b (Singleton p1 v1)   (Singleton p2 v2)
-    | p1 == p2                                 = maybeSingletonT p1 <$> matchedKey t p1 v1 v2
-    | otherwise                                = liftA2
-                                                   (maybeDoubleton2 b p1 p2)
-                                                   (missingKey l p1 v1)
-                                                   (missingKey r p2 v2)
-  go b (Branch _ u1)       (Branch _ u2)       = pair b u1 u2
-  go b s1@(Singleton p1 _) (Branch _ u2)       = let
-    (i1, _) = narrow b p1
-    in pair b (singleton i1 s1) u2
-  go b (Branch _ u1)       s2@(Singleton p2 _) = let
-    (i2, _) = narrow b p2
-    in pair b u1 (singleton i2 s2)
-
-  in go
-
-
--- | A general merge function, where we may have to rebound either or
--- both of the maps.
-imergeAT :: (Coordinate b p i,
-             Maplike i m,
-             Applicative f)
-         => WhenMissing f p u w
-         -> WhenMissing f p v w
-         -> WhenMatched f p u v w
-         -> Maybe b
-         -> Maybe b
-         -> b
-         -> SpaceTree p i b m u
-         -> SpaceTree p i b m v
-         -> f (SpaceTree p i b m w)
-imergeAT onL onR onB = let
-
-  go Nothing _ _ m Empty = runWhenMissing onL m
-
-  go _ Nothing _ Empty n = runWhenMissing onR n
-
-  go (Just b) _ d m Empty = reboundT b d <$> runWhenMissing onL m
-
-  go _ (Just c) d Empty n = reboundT c d <$> runWhenMissing onR n
-
-  go _ _ d (Singleton p u) (Singleton q v)
-    | p == q    = maybeSingletonT p <$> matchedKey onB p u v
-    | otherwise = liftA2 (maybeDoubleton2 d p q) (missingKey onL p u) (missingKey onR q v)
-
-  go Nothing Nothing d (Branch _ m) (Branch _ n) = let
-    pair = let
-      onl = utraverseMaybeMissing (fmap nonNullT . runWhenMissing onL)
-      onr = utraverseMaybeMissing (fmap nonNullT . runWhenMissing onR)
-      onb i u v = nonNullT <$> go Nothing Nothing (subbox d i) u v
-      in imergeA onl onr (WhenMatched onb)
-    in makeBranch <$> pair m n
-
-  go (Just b) Nothing d r (Branch _ n) = let
-    pair = let
-      onl = utraverseMaybeMissing (fmap nonNullT . _)
-      onr = utraverseMaybeMissing (fmap nonNullT . runWhenMissing onR)
-      -- onb :: i -> (a, Ingredients p i b m u) -> SpaceTree p i b m v -> f (Maybe (SpaceTree p i b m w))
-      onb _ (b', u) n' = nonNullT <$> _
-      in imergeA onl onr (WhenMatched onb)
-    in makeBranch <$> _ (subdivideIngredients d $ makeIngredients b r) n
-
-
-  go _ Nothing d r@(Singleton p _) (Branch _ n) = let
-    (i, _) = narrow d p
-    in pair d (singleton i r) n
-  go Nothing _ d (Branch _ m) s@(Singleton q _) = let
-    (j, _) = narrow d q
-    in pair d m (singleton j s)
-
-  go _ (Just c) d (Singleton p u) n
-    | containsPoint c p = let
-        f q v
-          | p == q    = matchedKey onB p u v
-          | otherwise = missingKey onR q v
-        g c'
-          | containsPoint c' p = Nothing
-          | otherwise          = Just onR
-        in reboundT c d <$> transformT f g c n
-    | otherwise = liftA2 (maybeInsertT p d) (missingKey onL p u) (reboundT c d <$> runWhenMissing onR n)
-  go (Just b) _ d m (Singleton q v)
-    | containsPoint b q = let
-        f p u
-          | p == q    = matchedKey onB p u v
-          | otherwise = missingKey onL p u
-        g b'
-          | containsPoint b' q = Nothing
-          | otherwise          = Just onL
-        in reboundT b d <$> transformT f g b m
-    | otherwise = liftA2 (maybeInsertT q d) (missingKey onR q v) (reboundT b d <$> runWhenMissing onL m)
-  in go
--}
