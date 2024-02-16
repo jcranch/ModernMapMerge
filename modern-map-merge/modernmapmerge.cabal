@@ -147,4 +147,5 @@ test-suite test-maplike
     , hspec ==2.11.*
     , indexed-traversable >=0.1.2 && <0.2
     , maplike
+    , modernmapmerge
   default-language: Haskell2010

@@ -171,6 +171,22 @@ zipWithMaybeMatched f = WhenMatched (\i x y -> pure $ f i x y)
 zipWithMatched :: Applicative f => (k -> x -> y -> z) -> WhenMatched f k x y z
 zipWithMatched f = WhenMatched (\i x y -> pure . Just $ f i x y)
 
+-- | A keyless `zipWithMaybeAMatched`
+uzipWithMaybeAMatched :: (x -> y -> f (Maybe z)) -> WhenMatched f k x y z
+uzipWithMaybeAMatched = zipWithMaybeAMatched . const
+
+-- | A keyless `zipWithAMatched`
+uzipWithAMatched :: Functor f => (x -> y -> f z) -> WhenMatched f k x y z
+uzipWithAMatched = zipWithAMatched . const
+
+-- | A keyless `zipWithMaybeMatched`
+uzipWithMaybeMatched :: Applicative f => (x -> y -> Maybe z) -> WhenMatched f k x y z
+uzipWithMaybeMatched = zipWithMaybeMatched . const
+
+-- | A keyless `zipWithMatched`
+uzipWithMatched :: Applicative f => (x -> y -> z) -> WhenMatched f k x y z
+uzipWithMatched = zipWithMatched . const
+
 preserveLeftMatched :: Applicative f => WhenMatched f k x y x
 preserveLeftMatched = WhenMatched (\_ x _ -> pure $ Just x)
 
