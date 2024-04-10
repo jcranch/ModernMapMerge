@@ -7,7 +7,7 @@ import Data.SpaceTree.Explicit
 -- TODO Need to generalise the "explicit" spacetree formalism to have
 -- arbitrary monoids, as in the style of the fingertree package. The
 -- default/dynamic implementations can be specialised to the counting
--- monoid
+-- monoid.
 
 
 newtype BlobTree p i b m a n v = BlobTree {
