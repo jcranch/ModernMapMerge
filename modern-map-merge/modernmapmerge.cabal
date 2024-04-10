@@ -29,7 +29,7 @@ library
       src-modernmapmerge
   ghc-options: -Wall -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints -Werror -Wwarn=missing-home-modules -O2
   build-depends:
-      base >=4.15 && <4.19
+      base >=4.15 && <4.20
     , containers >=0.6.4.1 && <0.7
     , indexed-traversable >=0.1.2 && <0.2
     , witherable >=0.4.2 && <0.5
@@ -48,8 +48,8 @@ library extra
   ghc-options: -Wall -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints -Werror -Wwarn=missing-home-modules -O2 -fno-warn-orphans
   build-depends:
       array >=0.5.4.0 && <0.6
-    , base >=4.15 && <4.19
-    , bytestring >=0.11.3 && <0.12
+    , base >=4.15 && <4.20
+    , bytestring >=0.11.3 && <0.13
     , bytestring-trie >=0.2.7 && <0.3
     , containers >=0.6.4.1 && <0.7
     , data-default >=0.7.1.1 && <0.8
@@ -74,7 +74,7 @@ library listmap
       src-listmap
   ghc-options: -Wall -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints -Werror -Wwarn=missing-home-modules -O2
   build-depends:
-      base >=4.15 && <4.19
+      base >=4.15 && <4.20
     , containers >=0.6.4.1 && <0.7
     , indexed-traversable >=0.1.2 && <0.2
     , modernmapmerge
@@ -97,7 +97,7 @@ library maplike
       src-maplike
   ghc-options: -Wall -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints -Werror -Wwarn=missing-home-modules -O2
   build-depends:
-      base >=4.15 && <4.19
+      base >=4.15 && <4.20
     , containers >=0.6.4.1 && <0.7
     , indexed-traversable >=0.1.2 && <0.2
     , modernmapmerge
@@ -106,6 +106,7 @@ library maplike
 
 library spacetrees
   exposed-modules:
+      Data.SpaceTree.Blob.Explicit
       Data.SpaceTree.Coords
       Data.SpaceTree.Default
       Data.SpaceTree.Dynamic
@@ -118,7 +119,7 @@ library spacetrees
       src-spacetrees
   ghc-options: -Wall -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints -Werror -Wwarn=missing-home-modules -O2
   build-depends:
-      base >=4.15 && <4.19
+      base >=4.15 && <4.20
     , containers >=0.6.4.1 && <0.7
     , indexed-traversable >=0.1.2 && <0.2
     , maplike
@@ -142,7 +143,7 @@ test-suite test-maplike
   build-tool-depends:
       hspec-discover:hspec-discover ==2.11.*
   build-depends:
-      base >=4.15 && <4.19
+      base >=4.15 && <4.20
     , containers >=0.6.4.1 && <0.7
     , hspec ==2.11.*
     , indexed-traversable >=0.1.2 && <0.2
