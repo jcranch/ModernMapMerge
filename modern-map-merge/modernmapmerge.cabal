@@ -111,6 +111,7 @@ library spacetrees
       Data.SpaceTree.Default
       Data.SpaceTree.Dynamic
       Data.SpaceTree.Explicit
+      Data.SpaceTree.Lonely
   other-modules:
       Paths_modernmapmerge
   autogen-modules:
