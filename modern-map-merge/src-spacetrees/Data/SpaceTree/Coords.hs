@@ -266,3 +266,10 @@ instance (Coordinate b p i)
     v <- findExtent (\g h -> f (g . (\(_,a,_) -> a)) (h . cuboidy')) x
     w <- findExtent (\g h -> f (g . (\(_,_,a) -> a)) (h . cuboidz')) x
     pure $ Cuboid' u v w
+
+
+-- | An object with spatial extent, indexed via a reference point.
+--
+-- Ideally that point should be in some sense central to the object.
+class Blob a p | a -> p where
+  reference :: a -> p
