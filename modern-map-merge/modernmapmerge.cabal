@@ -84,6 +84,7 @@ library listmap
 library maplike
   exposed-modules:
       Data.IntMap.Extra
+      Data.Lonely
       Data.Map.Extra
       Data.Maplike
       Data.Maplike.Branching
@@ -111,7 +112,6 @@ library spacetrees
       Data.SpaceTree.Default
       Data.SpaceTree.Dynamic
       Data.SpaceTree.Explicit
-      Data.SpaceTree.Lonely
   other-modules:
       Paths_modernmapmerge
   autogen-modules:

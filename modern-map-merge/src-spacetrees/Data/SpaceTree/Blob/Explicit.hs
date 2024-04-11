@@ -1,5 +1,6 @@
 module Data.SpaceTree.Blob.Explicit where
 
+import Data.Maplike
 import Data.SpaceTree.Coords
 import Data.SpaceTree.Explicit
 
@@ -20,4 +21,5 @@ classifyB = bindClassify _ _ . blobs
 nonNullB :: BlobTree p i b m a n v -> Maybe (BlobTree p i b m a n v)
 nonNullB (BlobTree t) = BlobTree <$> nonNullT t
 
-sizeB :: BlobTree
+sizeB :: BlobTree p i b m a n v -> Int
+sizeB = _
