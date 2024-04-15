@@ -32,56 +32,66 @@ import Data.MergeTactics
 import Data.SpaceTree.Coords
 
 
-data SpaceTree p i b m v =
+class Monoid a => Measure a p v where
+  measure :: p -> v -> a
+
+data SpaceTree a p i b m v =
   Empty |
   Singleton p v |
-  Branch Int (m (SpaceTree p i b m v))
+  Branch a (m (SpaceTree p i b m v))
   deriving (Functor)
 
-classifyT :: SpaceTree p i b m v -> Classified p v
+classifyT :: SpaceTree a p i b m v -> Classified p v
 classifyT Empty           = Zero
 classifyT (Singleton p v) = One p v
 classifyT (Branch _ _)    = Many
 
-nonNullT :: SpaceTree p i b m v -> Maybe (SpaceTree p i b m v)
+nonNullT :: SpaceTree a p i b m v -> Maybe (SpaceTree a p i b m v)
 nonNullT Empty = Nothing
 nonNullT m     = Just m
 
-sizeT :: SpaceTree p i b m v -> Int
-sizeT Empty           = 0
-sizeT (Singleton _ _) = 1
-sizeT (Branch n _)    = n
+measureT :: SpaceTree a p i b m v -> Int
+measureT Empty           = mempty
+measureT (Singleton p v) = measure p v
+measureT (Branch n _)    = n
 
-makeBranchUnsafe :: (Maplike i m) => m (SpaceTree p i b m v) -> SpaceTree p i b m v
-makeBranchUnsafe m = Branch (getSum $ foldMap (Sum . sizeT) m) m
+-- | Assumes there are at least two points
+makeBranchUnsafe :: (Maplike i m) => m (SpaceTree a p i b m v) -> SpaceTree a p i b m v
+makeBranchUnsafe m = Branch (foldMap measureT m) m
 
-makeBranch :: (Maplike i m) => m (SpaceTree p i b m v) -> SpaceTree p i b m v
+-- | Checks whether there are zero, one, or two-or-more points
+makeBranch :: (Maplike i m) => m (SpaceTree a p i b m v) -> SpaceTree a p i b m v
 makeBranch m = case bindClassify (const id) classifyT (classify m) of
   Zero    -> Empty
   One p v -> Singleton p v
   Many    -> makeBranchUnsafe m
 
-nullT :: SpaceTree p i b m v -> Bool
+nullT :: SpaceTree a p i b m v -> Bool
 nullT Empty = True
 nullT _     = False
 
-maybeSingletonT :: p -> Maybe v -> SpaceTree p i b m v
+maybeSingletonT :: p -> Maybe v -> SpaceTree a p i b m v
 maybeSingletonT _ Nothing  = Empty
 maybeSingletonT p (Just v) = Singleton p v
 
-doubleton :: (Coordinate b p i, Maplike i m) => b -> p -> v -> p -> v -> SpaceTree p i b m v
-doubleton b p1 v1 p2 v2 = let
+-- | Assumes that the two points are different; computes the measure
+doubleton :: (Coordinate b p i, Maplike i m) => b -> p -> v -> p -> v -> SpaceTree a p i b m v
+doubleton b p1 v1 p2 v2 = doubleton' b (measure p1 v1 <> measure p2 v2) p1 v1 p2 v2
+
+-- | Assumes that the two points are different; takes the measure precomputed
+doubleton' :: (Coordinate b p i, Maplike i m) => b -> a -> p -> v -> p -> v -> SpaceTree a p i b m v
+doubleton' b m p1 v1 p2 v2 = let
   (i1, b') = narrow b p1
   (i2, _ ) = narrow b p2
-  in if i1 == i2
-     then doubleton b' p1 v1 p2 v2
-     else Branch 2 $ fromFold [(i1,Singleton p1 v1),(i2,Singleton p2 v2)]
+  in Branch m $ if i1 == i2
+     then singleton i1 $ doubleton' b' m p1 v1 p2 v2
+     else fromFold [(i1,Singleton p1 v1),(i2,Singleton p2 v2)]
 
-maybeDoubleton :: (Coordinate b p i, Maplike i m) => b -> p -> v -> p -> Maybe v -> SpaceTree p i b m v
+maybeDoubleton :: (Coordinate b p i, Maplike i m) => b -> p -> v -> p -> Maybe v -> SpaceTree a p i b m v
 maybeDoubleton b p1 v1 p2 (Just v2) = doubleton b p1 v1 p2 v2
 maybeDoubleton _ p1 v1 _  Nothing   = Singleton p1 v1
 
-maybeDoubleton2 :: (Coordinate b p i, Maplike i m) => b -> p -> p -> Maybe v -> Maybe v -> SpaceTree p i b m v
+maybeDoubleton2 :: (Coordinate b p i, Maplike i m) => b -> p -> p -> Maybe v -> Maybe v -> SpaceTree a p i b m v
 maybeDoubleton2 _ _  _  Nothing   Nothing   = Empty
 maybeDoubleton2 _ _  p2 Nothing   (Just v2) = Singleton p2 v2
 maybeDoubleton2 _ p1 _  (Just v1) Nothing   = Singleton p1 v1
@@ -94,8 +104,8 @@ alterFT :: (Coordinate b p i,
         => (Maybe v -> f (Maybe v))
         -> p
         -> b
-        -> SpaceTree p i b m v
-        -> f (SpaceTree p i b m v)
+        -> SpaceTree a p i b m v
+        -> f (SpaceTree a p i b m v)
 alterFT f p = let
   go _ Empty = maybeSingletonT p <$> f Nothing
   go b (Singleton q x)
@@ -113,8 +123,8 @@ maybeInsertT :: (Coordinate b p i,
              => p
              -> b
              -> Maybe v
-             -> SpaceTree p i b m v
-             -> SpaceTree p i b m v
+             -> SpaceTree a p i b m v
+             -> SpaceTree a p i b m v
 maybeInsertT _ _ Nothing    = id
 maybeInsertT p b v@(Just _) = runIdentity . alterFT (const $ Identity v) p b
 
@@ -127,8 +137,8 @@ alterBestWithKeyFT :: (Coordinate b p i,
                    -> (b -> Maybe a)
                    -> (a -> p -> v -> f (Maybe v))
                    -> b
-                   -> SpaceTree p i b m v
-                   -> Maybe (f (SpaceTree p i b m v))
+                   -> SpaceTree a p i b m v
+                   -> Maybe (f (SpaceTree a p i b m v))
 alterBestWithKeyFT r s f = let
   enqueue b c m q = case m of
     Empty         -> q
@@ -151,7 +161,7 @@ findBestT :: (Coordinate b p i,
           => (p -> Maybe a)
           -> (b -> Maybe a)
           -> b
-          -> SpaceTree p i b m v
+          -> SpaceTree a p i b m v
           -> Maybe a
 findBestT r s b = fmap getConst . alterBestWithKeyFT r s (\a _ _ -> Const a) b
 
@@ -161,8 +171,8 @@ alterMinWithKeyFT :: (Coordinate b p i,
                       Functor f)
                   => (p -> v -> f (Maybe v))
                   -> b
-                  -> SpaceTree p i b m v
-                  -> Maybe (f (SpaceTree p i b m v))
+                  -> SpaceTree a p i b m v
+                  -> Maybe (f (SpaceTree a p i b m v))
 alterMinWithKeyFT f = alterBestWithKeyFT Just (Just . leastPoint) (const f)
 
 
@@ -171,8 +181,8 @@ alterMaxWithKeyFT :: (Coordinate b p i,
                       Functor f)
                   => (p -> v -> f (Maybe v))
                   -> b
-                  -> SpaceTree p i b m v
-                  -> Maybe (f (SpaceTree p i b m v))
+                  -> SpaceTree a p i b m v
+                  -> Maybe (f (SpaceTree a p i b m v))
 alterMaxWithKeyFT f = alterBestWithKeyFT (Just . Down) (Just . Down . greatestPoint) (const f)
 
 
@@ -180,8 +190,8 @@ alterAnyWithKeyFT :: (Coordinate b p i,
                       Maplike i m,
                       Functor f)
                   => (p -> v -> f (Maybe v))
-                  -> SpaceTree p i b m v
-                  -> Maybe (f (SpaceTree p i b m v))
+                  -> SpaceTree a p i b m v
+                  -> Maybe (f (SpaceTree a p i b m v))
 alterAnyWithKeyFT _ Empty           = Nothing
 alterAnyWithKeyFT f (Singleton p v) = Just (maybeSingletonT p <$> f p v)
 alterAnyWithKeyFT f (Branch _ u)    = let
@@ -198,7 +208,7 @@ foldlBestWithKeyT :: (Coordinate b p i,
                   -> (c -> p -> v -> c)
                   -> c
                   -> b
-                  -> SpaceTree p i b m v
+                  -> SpaceTree a p i b m v
                   -> c
 foldlBestWithKeyT r s f = let
   enqueue b m q = case m of
@@ -225,7 +235,7 @@ foldrBestWithKeyT :: (Coordinate b p i,
                   -> (p -> v -> c -> c)
                   -> c
                   -> b
-                  -> SpaceTree p i b m v
+                  -> SpaceTree a p i b m v
                   -> c
 foldrBestWithKeyT r s f z = let
   enqueue b m q = case m of
@@ -244,19 +254,19 @@ foldrBestWithKeyT r s f z = let
   in start
 
 
-instance (Eq p, forall x. Eq x => Eq (m x), Eq v) => Eq (SpaceTree p i b m v) where
+instance (Eq p, forall x. Eq x => Eq (m x), Eq v) => Eq (SpaceTree a p i b m v) where
   Empty           == Empty           = True
   Singleton p1 v1 == Singleton p2 v2 = p1 == p2 && v1 == v2
   Branch n1 m1    == Branch n2 m2    = n1 == n2 && m1 == m2 -- testing size is faster
   _               == _               = False
 
 
-instance Functor m => FunctorWithIndex p (SpaceTree p i b m) where
+instance Functor m => FunctorWithIndex p (SpaceTree a p i b m) where
   imap _ Empty = Empty
   imap f (Singleton p v) = Singleton p $ f p v
   imap f (Branch n u) = Branch n $ fmap (imap f) u
 
-instance Foldable m => Foldable (SpaceTree p i b m) where
+instance Foldable m => Foldable (SpaceTree a p i b m) where
   foldr _ z Empty = z
   foldr f z (Singleton _ a) = f a z
   foldr f z (Branch _ u) = foldr (flip (foldr f)) z u
@@ -264,7 +274,7 @@ instance Foldable m => Foldable (SpaceTree p i b m) where
   foldMap f (Singleton _ a) = f a
   foldMap f (Branch _ u) = foldMap (foldMap f) u
 
-instance Foldable m => FoldableWithIndex p (SpaceTree p i b m) where
+instance Foldable m => FoldableWithIndex p (SpaceTree a p i b m) where
   ifoldr _ z Empty = z
   ifoldr f z (Singleton p a) = f p a z
   ifoldr f z (Branch _ u) = foldr (flip (ifoldr f)) z u
@@ -272,32 +282,32 @@ instance Foldable m => FoldableWithIndex p (SpaceTree p i b m) where
   ifoldMap f (Singleton p a) = f p a
   ifoldMap f (Branch _ u) = foldMap (ifoldMap f) u
 
-instance Traversable m => Traversable (SpaceTree p i b m) where
+instance Traversable m => Traversable (SpaceTree a p i b m) where
   traverse _ Empty = pure Empty
   traverse f (Singleton p a) = Singleton p <$> f a
   traverse f (Branch n u) = Branch n <$> traverse (traverse f) u
 
-instance Traversable m => TraversableWithIndex p (SpaceTree p i b m) where
+instance Traversable m => TraversableWithIndex p (SpaceTree a p i b m) where
   itraverse _ Empty = pure Empty
   itraverse f (Singleton p a) = Singleton p <$> f p a
   itraverse f (Branch n u) = Branch n <$> traverse (itraverse f) u
 
-instance (Maplike i m) => Filterable (SpaceTree p i b m) where
+instance (Maplike i m) => Filterable (SpaceTree a p i b m) where
   mapMaybe _ Empty = Empty
   mapMaybe f (Singleton p a) = maybeSingletonT p (f a)
   mapMaybe f (Branch _ u) = makeBranch $ mapMaybe (nonNullT . mapMaybe f) u
 
-instance (Maplike i m) => FilterableWithIndex p (SpaceTree p i b m) where
+instance (Maplike i m) => FilterableWithIndex p (SpaceTree a p i b m) where
   imapMaybe _ Empty = Empty
   imapMaybe f (Singleton p a) = maybeSingletonT p (f p a)
   imapMaybe f (Branch _ u) = makeBranch $ mapMaybe (nonNullT . imapMaybe f) u
 
-instance (Maplike i m) => Witherable (SpaceTree p i b m) where
+instance (Maplike i m) => Witherable (SpaceTree a p i b m) where
   wither _ Empty = pure Empty
   wither f (Singleton p a) = maybeSingletonT p <$> f a
   wither f (Branch _ u) = makeBranch <$> wither (fmap nonNullT . wither f) u
 
-instance (Maplike i m) => WitherableWithIndex p (SpaceTree p i b m) where
+instance (Maplike i m) => WitherableWithIndex p (SpaceTree a p i b m) where
   iwither _ Empty = pure Empty
   iwither f (Singleton p a) = maybeSingletonT p <$> f p a
   iwither f (Branch _ u) = makeBranch <$> wither (fmap nonNullT . iwither f) u
@@ -310,8 +320,8 @@ transformT :: (Coordinate b p i,
            => (p -> u -> f (Maybe v))
            -> (b -> Maybe (WhenMissing f p u v))
            -> b
-           -> SpaceTree p i b m u
-           -> f (SpaceTree p i b m v)
+           -> SpaceTree a p i b m u
+           -> f (SpaceTree a p i b m v)
 transformT f g = let
   go _ Empty = pure Empty
   go _ (Singleton p u) = maybeSingletonT p <$> f p u
@@ -321,7 +331,7 @@ transformT f g = let
   in go
 
 
-fastFilter :: (Coordinate b p i, Maplike i m) => (p -> Bool) -> (b -> Maybe Bool) -> b -> SpaceTree p i b m v -> SpaceTree p i b m v
+fastFilter :: (Coordinate b p i, Maplike i m) => (p -> Bool) -> (b -> Maybe Bool) -> b -> SpaceTree a p i b m v -> SpaceTree a p i b m v
 fastFilter f g = let
   go _ Empty = Empty
   go _ s@(Singleton p _) = if f p then s else Empty
@@ -337,8 +347,8 @@ fastPartition :: (Coordinate b p i,
               => (p -> Bool)
               -> (b -> Maybe Bool)
               -> b
-              -> SpaceTree p i b m v
-              -> (SpaceTree p i b m v, SpaceTree p i b m v)
+              -> SpaceTree a p i b m v
+              -> (SpaceTree a p i b m v, SpaceTree a p i b m v)
 fastPartition f g = let
   complexToPair (x :+ y) = (x, y)
   go _ Empty = Empty :+ Empty
@@ -352,7 +362,7 @@ fastPartition f g = let
   start b = complexToPair . go b
   in start
 
-fastFilterA :: (Coordinate b p i, Maplike i m, Monad f) => (p -> f Bool) -> (b -> f (Maybe Bool)) -> b -> SpaceTree p i b m v -> f (SpaceTree p i b m v)
+fastFilterA :: (Coordinate b p i, Maplike i m, Monad f) => (p -> f Bool) -> (b -> f (Maybe Bool)) -> b -> SpaceTree a p i b m v -> f (SpaceTree a p i b m v)
 fastFilterA f g = let
   go _ Empty = pure Empty
   go _ s@(Singleton p _) = let
@@ -366,12 +376,12 @@ fastFilterA f g = let
   in go
 
 
-extent :: (Coordinate b p i, Foldable m) => SpaceTree p i b m v -> Maybe b
+extent :: (Coordinate b p i, Foldable m) => SpaceTree a p i b m v -> Maybe b
 extent = ifoldMap (\p _ -> Just (pointBox p))
 
 
 data Ingredient p i b m v = Point p v
-                          | Chunk b Int (m (SpaceTree p i b m v))
+                          | Chunk b Int (m (SpaceTree a p i b m v))
 
 instance Functor m => Functor (Ingredient p i b m) where
   fmap f (Point p v) = Point p (f v)
@@ -459,18 +469,18 @@ pureI = Ingredients . pure
 emptyI :: Ingredients p i b m v
 emptyI = Ingredients V.empty
 
-makeIngredient :: b -> SpaceTree p i b m v -> Maybe (Ingredient p i b m v)
+makeIngredient :: b -> SpaceTree a p i b m v -> Maybe (Ingredient p i b m v)
 makeIngredient _ Empty           = Nothing
 makeIngredient _ (Singleton p v) = Just $ Point p v
 makeIngredient b (Branch n m)    = Just $ Chunk b n m
 
-makeIngredients' :: b -> SpaceTree p i b m v -> Vector (Ingredient p i b m v)
+makeIngredients' :: b -> SpaceTree a p i b m v -> Vector (Ingredient p i b m v)
 makeIngredients' _ Empty           = V.empty
 makeIngredients' _ (Singleton p v) = pure $ Point p v
 makeIngredients' b (Branch n m)    = pure $ Chunk b n m
 
 makeIngredients :: b
-                -> SpaceTree p i b m v
+                -> SpaceTree a p i b m v
                 -> Ingredients p i b m v
 makeIngredients b = Ingredients . makeIngredients' b
 
@@ -528,7 +538,7 @@ assembleIngredients :: (Coordinate b p i,
                         Maplike i m)
                     => b
                     -> Ingredients p i b m v
-                    -> SpaceTree p i b m v
+                    -> SpaceTree a p i b m v
 assembleIngredients b a = case classifyIngredients a of
   Zero    -> Empty
   One p v -> Singleton p v
@@ -541,8 +551,8 @@ reboundT :: (Coordinate b p i,
              Maplike i m)
          => b
          -> b
-         -> SpaceTree p i b m v
-         -> SpaceTree p i b m v
+         -> SpaceTree a p i b m v
+         -> SpaceTree a p i b m v
 reboundT old new = assembleIngredients new . makeIngredients old
 
 
@@ -553,10 +563,10 @@ reboundT old new = assembleIngredients new . makeIngredients old
 class Mergee c p i b m | c -> p, c -> i, c -> b, c -> m where
   classifyMergee :: c v -> Classified p v
   subdivideMergee :: b -> c v -> m (c v)
-  runWhenMissingMergee :: Applicative f => WhenMissing f p u v -> b -> c u -> f (SpaceTree p i b m v)
-  simpleRunWhenMissingMergee :: SimpleWhenMissing p u v -> b -> c u -> SpaceTree p i b m v
+  runWhenMissingMergee :: Applicative f => WhenMissing f p u v -> b -> c u -> f (SpaceTree a p i b m v)
+  simpleRunWhenMissingMergee :: SimpleWhenMissing p u v -> b -> c u -> SpaceTree a p i b m v
 
-instance Maplike i m => Mergee (SpaceTree p i b m) p i b m where
+instance Maplike i m => Mergee (SpaceTree a p i b m) p i b m where
   classifyMergee = classifyT
   subdivideMergee _ Empty           = error "subdivideMergee: should not be called on Empty"
   subdivideMergee _ (Singleton _ _) = error "subdivideMergee: should not be called on Singleton"
@@ -596,7 +606,7 @@ imergeT :: (Coordinate b p i,
          -> b
          -> c u
          -> d v
-         -> SpaceTree p i b m w
+         -> SpaceTree a p i b m w
 imergeT onL onR onB = let
 
   go b x y = case (classifyMergee x, classifyMergee y) of
@@ -644,7 +654,7 @@ imergeAT :: (Applicative f,
          -> b
          -> c u
          -> d v
-         -> f (SpaceTree p i b m w)
+         -> f (SpaceTree a p i b m w)
 imergeAT onL onR onB = let
 
   go b x y = case (classifyMergee x, classifyMergee y) of
