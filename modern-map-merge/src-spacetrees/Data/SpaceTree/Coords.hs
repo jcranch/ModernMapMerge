@@ -271,5 +271,6 @@ instance (Coordinate b p i)
 -- | An object with spatial extent, indexed via a reference point.
 --
 -- Ideally that point should be in some sense central to the object.
-class Blob a p | a -> p where
+class Blob a b p | a -> b, a -> p where
   reference :: a -> p
+  extent :: a -> b
