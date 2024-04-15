@@ -1,18 +1,26 @@
+{-# LANGUAGE
+      FunctionalDependencies,
+      MultiParamTypeClasses
+  #-}
+
 module Data.SpaceTree.Blob.Explicit where
+
+import Data.Monoid (Sum(..))
 
 import Data.Maplike
 import Data.SpaceTree.Coords
 import Data.SpaceTree.Explicit
 
 
--- TODO Need to generalise the "explicit" spacetree formalism to have
--- arbitrary monoids, as in the style of the fingertree package. The
--- default/dynamic implementations can be specialised to the counting
--- monoid.
+-- | An object with spatial extent, indexed via a reference point.
+--
+-- Ideally that point should be in some sense central to the object.
+class Measure a b => Blob a b p | a -> b, a -> p where
+  reference :: a -> p
 
 
 newtype BlobTree p i b m a n v = BlobTree {
-  blobs :: SpaceTree p i b m (n v)
+  blobs :: SpaceTree (b, Sum Int) p i b m (n v)
 }
 
 classifyB :: BlobTree p i b m a n v -> Classified a v

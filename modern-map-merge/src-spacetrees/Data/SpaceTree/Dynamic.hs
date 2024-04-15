@@ -13,6 +13,7 @@ module Data.SpaceTree.Dynamic where
 import Data.Functor.Compose (Compose(..))
 import Data.Foldable.WithIndex
 import Data.Functor.WithIndex
+import Data.Monoid (Sum(..))
 import Data.Traversable.WithIndex
 import Witherable
 
@@ -24,7 +25,7 @@ import Data.SpaceTree.Explicit
 
 data DynamicMap p i b m v = DynamicMap {
   getBounds :: Maybe b,
-  getTree :: SpaceTree p i b m v
+  getTree :: SpaceTree (Sum Int) p i b m v
 } deriving (Functor)
 
 instance Functor m => FunctorWithIndex p (DynamicMap p i b m) where
@@ -108,5 +109,5 @@ instance (Coordinate b p i, Maplike i m) => Maplike p (DynamicMap p i b m) where
 -- | What's the tightest possible bounding box?
 extent :: (Coordinate b p i, Maplike i m) => DynamicMap p i b m v -> Maybe b
 extent (DynamicMap Nothing  _) = Nothing
-extent (DynamicMap (Just b) m) = findExtent (\r s -> findBestT (Just . r) (Just . s) b) m
+extent (DynamicMap (Just b) m) = findExtent (\r s -> findBestT (Just . r) (const (Just . s)) b) m
 

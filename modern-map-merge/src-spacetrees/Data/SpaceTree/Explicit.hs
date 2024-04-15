@@ -18,8 +18,8 @@ import Data.Foldable.WithIndex
 import Data.Functor.Const (Const(..))
 import Data.Functor.Identity (Identity(..))
 import Data.Functor.WithIndex
-import qualified Data.PQueue.Prio.Min as Q
 import Data.Monoid (Sum(..))
+import qualified Data.PQueue.Prio.Min as Q
 import Data.Ord (Down(..))
 import Data.Traversable.WithIndex
 import Data.Vector (Vector)
@@ -38,6 +38,9 @@ class Monoid a => Measure a p where
 instance Measure (Sum Int) p where
   measure _ = Sum 1
 
+instance (Measure a p, Measure b p) => Measure (a, b) p where
+  measure p = (measure p, measure p)
+
 data SpaceTree a p i b m v =
   Empty |
   Singleton p v |
@@ -53,14 +56,14 @@ nonNullT :: SpaceTree a p i b m v -> Maybe (SpaceTree a p i b m v)
 nonNullT Empty = Nothing
 nonNullT m     = Just m
 
-measureT :: Measure a p => SpaceTree a p i b m v -> a
-measureT Empty           = mempty
-measureT (Singleton p _) = measure p
-measureT (Branch n _)    = n
+instance Measure a p => Measure a (SpaceTree a p i b m v) where
+  measure Empty           = mempty
+  measure (Singleton p _) = measure p
+  measure (Branch n _)    = n
 
 -- | Assumes there are at least two points
 makeBranchUnsafe :: (Maplike i m, Measure a p) => m (SpaceTree a p i b m v) -> SpaceTree a p i b m v
-makeBranchUnsafe m = Branch (foldMap measureT m) m
+makeBranchUnsafe m = Branch (foldMap measure m) m
 
 -- | Checks whether there are zero, one, or two-or-more points
 makeBranch :: (Maplike i m, Measure a p) => m (SpaceTree a p i b m v) -> SpaceTree a p i b m v
