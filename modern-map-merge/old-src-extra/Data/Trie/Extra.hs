@@ -25,7 +25,7 @@ instance FunctorWithIndex ByteString Trie where
     go q (Branch p m l r) = Branch p m (go q l) (go q r)
     in go Nil
 -}
-  
+
 instance FoldableWithIndex ByteString Trie where
   -- Arguments come in a different order for I.foldlWithKey
   ifoldl = I.foldlWithKey . flip
