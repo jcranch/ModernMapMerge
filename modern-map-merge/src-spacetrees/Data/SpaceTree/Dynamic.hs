@@ -13,7 +13,6 @@ module Data.SpaceTree.Dynamic where
 import Data.Functor.Compose (Compose(..))
 import Data.Foldable.WithIndex
 import Data.Functor.WithIndex
-import Data.Monoid (Sum(..))
 import Data.Traversable.WithIndex
 import Witherable
 
@@ -25,8 +24,11 @@ import Data.SpaceTree.Explicit
 
 data DynamicMap p i b m v = DynamicMap {
   getBounds :: Maybe b,
-  getTree :: SpaceTree (Sum Int) p i b m v
+  getTree :: SpaceTree (Counting p) p i b m v
 } deriving (Functor)
+
+size :: DynamicMap p i b m v -> Int
+size = getCount . totalMeasure . getTree
 
 instance Functor m => FunctorWithIndex p (DynamicMap p i b m) where
   imap f (DynamicMap b s) = DynamicMap b $ imap f s

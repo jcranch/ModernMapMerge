@@ -1,5 +1,7 @@
 {-# LANGUAGE
       DeriveFunctor,
+      DerivingStrategies,
+      DerivingVia,
       FlexibleContexts,
       FlexibleInstances,
       FunctionalDependencies,
@@ -32,14 +34,32 @@ import Data.MergeTactics
 import Data.SpaceTree.Coords
 
 
+
 class Monoid a => Measure a p where
   measure :: p -> a
 
-instance Measure (Sum Int) p where
-  measure _ = Sum 1
+newtype Counting p = Counting {
+  getCount :: Int
+} deriving (Eq, Show)
+  deriving (Semigroup, Monoid) via Sum Int
 
-instance (Measure a p, Measure b p) => Measure (a, b) p where
-  measure p = (measure p, measure p)
+instance Measure (Counting p) p where
+  measure _ = Counting 1
+
+data PairMeasure a b p = PairMeasure {
+  measureL :: a,
+  measureR :: b
+} deriving (Eq, Show)
+
+instance (Semigroup a, Semigroup b) => Semigroup (PairMeasure a b p) where
+  PairMeasure x1 y1 <> PairMeasure x2 y2 = PairMeasure (x1 <> x2) (y1 <> y2)
+
+instance (Monoid a, Monoid b) => Monoid (PairMeasure a b p) where
+  mempty = PairMeasure mempty mempty
+
+instance (Measure a p, Measure b p) => Measure (PairMeasure a b p) p where
+  measure p = PairMeasure (measure p) (measure p)
+
 
 data SpaceTree a p i b m v =
   Empty |
@@ -60,6 +80,10 @@ instance Measure a p => Measure a (SpaceTree a p i b m v) where
   measure Empty           = mempty
   measure (Singleton p _) = measure p
   measure (Branch n _)    = n
+
+-- | This avoids some problems caused by ambiguous instances
+totalMeasure :: Measure a p => SpaceTree a p i b m v -> a
+totalMeasure = measure
 
 -- | Assumes there are at least two points
 makeBranchUnsafe :: (Maplike i m, Measure a p) => m (SpaceTree a p i b m v) -> SpaceTree a p i b m v
