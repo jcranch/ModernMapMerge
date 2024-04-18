@@ -11,7 +11,6 @@ module Data.SpaceTree.Default where
 
 import Data.Foldable.WithIndex
 import Data.Functor.WithIndex
-import Data.Monoid (Sum(..))
 import Data.Traversable.WithIndex
 import Witherable
 
@@ -21,7 +20,7 @@ import Data.SpaceTree.Explicit
 
 
 newtype DefaultMap p i b m v = DefaultMap {
-  getSpaceTree :: SpaceTree (Sum Int) p i b m v
+  getSpaceTree :: SpaceTree (Counting p) p i b m v
 } deriving (Functor,
             FunctorWithIndex p,
             Foldable,
