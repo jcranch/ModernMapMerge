@@ -103,13 +103,33 @@ library maplike
     , witherable >=0.4.2 && <0.5
   default-language: Haskell2010
 
+library radix-tree-merge
+  exposed-modules:
+      Data.Patricia.Word.Lazy.Merge
+  other-modules:
+      Paths_modernmapmerge
+  autogen-modules:
+      Paths_modernmapmerge
+  hs-source-dirs:
+      src-radix-tree-merge
+  ghc-options: -Wall -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints -Werror -Wwarn=missing-home-modules -O2 -fno-warn-orphans
+  build-depends:
+      base >=4.15 && <4.20
+    , containers >=0.6.4.1 && <0.7
+    , indexed-traversable >=0.1.2 && <0.2
+    , maplike
+    , modernmapmerge
+    , radix-tree >=1.0.0.0 && <1.1
+    , witherable >=0.4.2 && <0.5
+  default-language: Haskell2010
+
 library spacetrees
   exposed-modules:
-      Data.SpaceTree.Blob.Explicit
       Data.SpaceTree.Coords
       Data.SpaceTree.Default
       Data.SpaceTree.Dynamic
       Data.SpaceTree.Explicit
+      Data.SpaceTree.R.Explicit
   other-modules:
       Paths_modernmapmerge
   autogen-modules:

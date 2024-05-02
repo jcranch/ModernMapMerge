@@ -3,9 +3,10 @@
       MultiParamTypeClasses
   #-}
 
-module Data.SpaceTree.Blob.Explicit where
-
-import Data.Monoid (Sum(..))
+-- | R-trees
+--
+-- https://en.wikipedia.org/wiki/R-tree
+module Data.SpaceTree.R.Explicit where
 
 import Data.Maplike
 import Data.SpaceTree.Coords
@@ -20,14 +21,14 @@ class Measure a b => Blob a b p | a -> b, a -> p where
 
 
 newtype BlobTree p i b m a n v = BlobTree {
-  blobs :: SpaceTree (b, Sum Int) p i b m (n v)
+  blobs :: SpaceTree (PairMeasure (BoxMeasure b p i) (Counting p) p) p i b m (n v)
 }
 
-classifyB :: BlobTree p i b m a n v -> Classified a v
-classifyB = bindClassify _ _ . blobs
+classifyB :: (Maplike a n) => BlobTree p i b m a n v -> Classified a v
+classifyB = bindClassify (const id) classify . classifyT . blobs
 
 nonNullB :: BlobTree p i b m a n v -> Maybe (BlobTree p i b m a n v)
 nonNullB (BlobTree t) = BlobTree <$> nonNullT t
 
-sizeB :: BlobTree p i b m a n v -> Int
-sizeB = _
+sizeB :: (Coordinate b p i) => BlobTree p i b m a n v -> Int
+sizeB = getCount . measureR . totalMeasure . blobs

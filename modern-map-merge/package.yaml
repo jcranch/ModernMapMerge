@@ -41,6 +41,16 @@ internal-libraries:
       - modernmapmerge
       - witherable                    >= 0.4.2    && < 0.5
 
+  radix-tree-merge:
+    source-dirs:    src-radix-tree-merge
+    dependencies:
+      - maplike
+      - modernmapmerge
+      - radix-tree                    >= 1.0.0.0  && < 1.1
+      - witherable                    >= 0.4.2    && < 0.5
+    ghc-options:
+      - -fno-warn-orphans
+
   spacetrees:
     source-dirs:    src-spacetrees
     dependencies:

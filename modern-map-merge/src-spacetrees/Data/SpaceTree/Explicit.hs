@@ -38,6 +38,14 @@ import Data.SpaceTree.Coords
 class Monoid a => Measure a p where
   measure :: p -> a
 
+newtype BoxMeasure b p i = BoxMeasure {
+  getBox :: Maybe b
+} deriving (Eq, Show)
+  deriving (Semigroup, Monoid) via (Maybe b)
+
+instance Coordinate b p i => Measure (BoxMeasure b p i) p where
+  measure = BoxMeasure . Just . pointBox
+
 newtype Counting p = Counting {
   getCount :: Int
 } deriving (Eq, Show)
