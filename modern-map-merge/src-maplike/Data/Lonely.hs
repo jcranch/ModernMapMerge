@@ -31,7 +31,7 @@ data Lonely k v =
 
 maybeSingleton' :: k -> Maybe v -> Lonely k v
 maybeSingleton' _ Nothing  = Barren
-maybeSingleton' k (Just v) = Alone k v 
+maybeSingleton' k (Just v) = Alone k v
 
 instance Foldable (Lonely k) where
   foldMap _ Barren      = mempty

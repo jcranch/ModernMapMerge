@@ -34,7 +34,6 @@ import Data.MergeTactics
 import Data.SpaceTree.Coords
 
 
-
 class Monoid a => Measure a p where
   measure :: p -> a
 
