@@ -182,8 +182,8 @@ instance Maplike Word Patricia where
                            R -> matchedKey onB kA b a
 
           | otherwise -> case s of
-                           L -> safeJoin kA (oneX kA a) kB (sideY tB)
-                           R -> safeJoin kA (oneY kA a) kB (sideX tB)
+                           L -> liftA2 (flip (safeJoin kA) kB) (missingKey onL kA a) (sideY tB)
+                           R -> liftA2 (flip (safeJoin kA) kB) (missingKey onR kA a) (sideX tB)
 
         Nil          -> sideA s tA
 
@@ -198,8 +198,8 @@ instance Maplike Word Patricia where
 
     tipBin s uA@(# kA, a #) tA (# pB, lB, rB #)
       | P.beyond pB kA = case s of
-                           L -> safeJoin kA (oneX kA a) pB (treeY pB lB rB)
-                           R -> safeJoin kA (oneY kA a) pB (treeX pB lB rB)
+                           L -> liftA2 (flip (safeJoin kA) pB) (missingKey onL kA a) (runWhenMissing onR $ Bin pB lB rB)
+                           R -> liftA2 (flip (safeJoin kA) pB) (missingKey onR kA a) (runWhenMissing onL $ Bin pB lB rB)
 
       | kA < pB      = rebin pB (tipAny s uA tA lB) (sideB s rB)
 
@@ -208,8 +208,8 @@ instance Maplike Word Patricia where
     binBin s uA@(# pA, lA, rA #) tA uB@(# pB, lB, rB #) tB =
       let {-# NOINLINE no #-}
           no = case s of
-                 L -> safeJoin pA (treeX pA lA rA) pB (treeY pB lB rB)
-                 R -> safeJoin pA (treeY pA lA rA) pB (treeX pB lB rB)
+                 L -> liftA2 (flip (safeJoin pA) pB) (runWhenMissing onL $ Bin pA lA rA) (runWhenMissing onR $ Bin pB lB rB)
+                 R -> liftA2 (flip (safeJoin pA) pB) (runWhenMissing onR $ Bin pA lA rA) (runWhenMissing onL $ Bin pB lB rB)
 
       in case Prelude.compare pA pB of
            EQ                    -> liftA2 (rebin pA) (anyAny s lA lB) (anyAny s rA rB)
