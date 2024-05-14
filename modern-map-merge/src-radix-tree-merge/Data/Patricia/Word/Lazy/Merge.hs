@@ -2,8 +2,10 @@
       BangPatterns,
       ExistentialQuantification,
       GADTs,
+      InstanceSigs,
       MultiParamTypeClasses,
       RankNTypes,
+      ScopedTypeVariables,
       UnboxedTuples
   #-}
 
@@ -98,7 +100,7 @@ instance FoldableWithIndex Word Patricia where
 
 instance TraversableWithIndex Word Patricia where
   itraverse = P.traverseWithKey
-  
+
 instance FilterableWithIndex Word Patricia where
   imapMaybe = P.mapMaybeWithKey
 
@@ -153,25 +155,37 @@ instance Maplike Word Patricia where
       Nil       -> Nothing
     in go
 
+  imergeA :: forall f a b c.
+             Applicative f
+          => WhenMissing f Word a c
+          -> WhenMissing f Word b c
+          -> WhenMatched f Word a b c
+          -> Patricia a
+          -> Patricia b
+          -> f (Patricia c)
   imergeA onL onR onB = let
 
     sideX = runWhenMissing onL
     sideY = runWhenMissing onR
 
+    sideA :: forall a1 b1. S a1 b1 a b -> Patricia a1 -> f (Patricia c)
     sideA s tA = case s of
                    L -> sideX tA
                    R -> sideY tA
 
+    sideB :: forall a1 b1. S a1 b1 a b -> Patricia b1 -> f (Patricia c)
     sideB s tB = case s of
                    L -> sideY tB
                    R -> sideX tB
 
+    anyAny :: forall a1 b1. S a1 b1 a b -> Patricia a1 -> Patricia b1 -> f (Patricia c)
     anyAny s tA tB =
       case tA of
         Bin pA lA rA -> binAny s (# pA, lA, rA #) tA tB
         Tip kA a     -> tipAny s (# kA, a #) tA tB
         Nil          -> sideB s tB
 
+    tipAny :: forall a1 b1. S a1 b1 a b -> UTip a1 -> Patricia a1 -> Patricia b1 -> f (Patricia c)
     tipAny s uA@(# kA, a #) tA tB =
       case tB of
         Bin pB lB rB -> tipBin s uA tA (# pB, lB, rB #)
@@ -182,11 +196,12 @@ instance Maplike Word Patricia where
                            R -> matchedKey onB kA b a
 
           | otherwise -> case s of
-                           L -> liftA2 (flip (safeJoin kA) kB) (missingKey onL kA a) (sideY tB)
-                           R -> liftA2 (flip (safeJoin kA) kB) (missingKey onR kA a) (sideX tB)
+                           L -> liftA2 (flip (safeJoin kA) kB) (missingSingleton onL kA a) (sideY tB)
+                           R -> liftA2 (flip (safeJoin kA) kB) (missingSingleton onR kA a) (sideX tB)
 
         Nil          -> sideA s tA
 
+    binAny :: forall a1 b1. S a1 b1 a b -> UBin a1 -> Patricia a1 -> Patricia b1 -> f (Patricia c)
     binAny s uA tA tB =
       case tB of
         Bin pB lB rB -> binBin s uA tA (# pB, lB, rB #) tB
@@ -196,15 +211,17 @@ instance Maplike Word Patricia where
 
         Nil          -> sideA s tA
 
+    tipBin :: forall a1 b1. S a1 b1 a b -> UTip a1 -> Patricia a1 -> UBin b1 -> f (Patricia c)
     tipBin s uA@(# kA, a #) tA (# pB, lB, rB #)
       | P.beyond pB kA = case s of
-                           L -> liftA2 (flip (safeJoin kA) pB) (missingKey onL kA a) (runWhenMissing onR $ Bin pB lB rB)
-                           R -> liftA2 (flip (safeJoin kA) pB) (missingKey onR kA a) (runWhenMissing onL $ Bin pB lB rB)
+                           L -> liftA2 (flip (safeJoin kA) pB) (missingSingleton onL kA a) (runWhenMissing onR $ Bin pB lB rB)
+                           R -> liftA2 (flip (safeJoin kA) pB) (missingSingleton onR kA a) (runWhenMissing onL $ Bin pB lB rB)
 
-      | kA < pB      = rebin pB (tipAny s uA tA lB) (sideB s rB)
+      | kA < pB      = liftA2 (rebin pB) (tipAny s uA tA lB) (sideB s rB)
 
-      | otherwise    = rebin pB (sideB s lB) (tipAny s uA tA rB)
+      | otherwise    = liftA2 (rebin pB) (sideB s lB) (tipAny s uA tA rB)
 
+    binBin :: forall a1 b1. S a1 b1 a b -> UBin a1 -> Patricia a1 -> UBin b1 -> Patricia b1 -> f (Patricia c)
     binBin s uA@(# pA, lA, rA #) tA uB@(# pB, lB, rB #) tB =
       let {-# NOINLINE no #-}
           no = case s of
@@ -229,5 +246,5 @@ instance Maplike Word Patricia where
                                     in liftA2 (rebin pA) (binAny s' uB tB lA) (sideA s rA)
 
               | otherwise      -> no
-        
+
     in anyAny L

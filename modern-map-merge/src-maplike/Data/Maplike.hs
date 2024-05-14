@@ -265,6 +265,10 @@ maybeSingleton :: Maplike k m => k -> Maybe v -> m v
 maybeSingleton _ Nothing  = empty
 maybeSingleton k (Just v) = singleton k v
 
+-- | run a WhenMissing on a singleton
+missingSingleton :: (Functor f, Maplike k m) => WhenMissing f k u v -> k -> u -> f (m v)
+missingSingleton r k v = maybeSingleton k <$> missingKey r k v
+
 -- | Remove a key (if present)
 delete :: Maplike k m => k -> m v -> m v
 delete = alter (const Nothing)
