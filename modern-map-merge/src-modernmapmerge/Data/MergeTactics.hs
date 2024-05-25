@@ -159,6 +159,12 @@ reindexMatched p (WhenMatched f) = WhenMatched (f . p)
 dropMatched :: Applicative f => WhenMatched f i x y z
 dropMatched = WhenMatched (\_ _ _ -> pure Nothing)
 
+foldMatched :: (i -> x -> y -> m) -> WhenMatched (Const m) i x y z
+foldMatched f = WhenMatched (\i x y -> Const $ f i x y)
+
+ufoldMatched :: (x -> y -> m) -> WhenMatched (Const m) i x y z
+ufoldMatched f = WhenMatched (\_ x y -> Const $ f x y)
+
 zipWithMaybeAMatched :: (k -> x -> y -> f (Maybe z)) -> WhenMatched f k x y z
 zipWithMaybeAMatched = WhenMatched
 
