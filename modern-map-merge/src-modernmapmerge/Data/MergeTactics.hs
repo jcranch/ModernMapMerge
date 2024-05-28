@@ -8,6 +8,7 @@
 module Data.MergeTactics where
 
 import Prelude hiding (filter)
+import Control.Applicative (Alternative(..))
 import Control.Category (Category)
 import Control.Monad ((<=<))
 import Data.Functor.Compose ()
@@ -90,6 +91,10 @@ foldMissing f = WhenMissing (Const . foldMap f)
 
 -- | A `WhenMissing` tactic which drops all elements. This is often
 -- rapid: often consisting of returning an empty data structure.
+-- Ideally Filterables would have a `flush` method to speed this up.
+--
+-- Not to be confused with `emptyMissing` (this one returns an empty
+-- data structure).
 dropMissing :: Applicative f => WhenMissing f k x y
 dropMissing = WhenMissing (pure . mapMaybe (const Nothing))
 
@@ -164,6 +169,9 @@ foldMatched f = WhenMatched (\i x y -> Const $ f i x y)
 
 ufoldMatched :: (x -> y -> m) -> WhenMatched (Const m) i x y z
 ufoldMatched f = WhenMatched (\_ x y -> Const $ f x y)
+
+emptyMatched :: Alternative f => WhenMatched f k x y z
+emptyMatched = WhenMatched (\_ _ _ -> empty)
 
 zipWithMaybeAMatched :: (k -> x -> y -> f (Maybe z)) -> WhenMatched f k x y z
 zipWithMaybeAMatched = WhenMatched
