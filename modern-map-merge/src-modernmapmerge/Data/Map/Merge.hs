@@ -3,17 +3,22 @@
   #-}
 
 
--- | Merging for `Map` in this new framework
+-- | Merging for `Data.Map` in this new framework
 module Data.Map.Merge where
 
 import Control.Applicative (liftA3)
 import Data.Map.Internal hiding (WhenMissing(..),
+                                 SimpleWhenMissing,
                                  runWhenMissing,
-                                 WhenMatched(..))
+                                 WhenMatched(..),
+                                 SimpleWhenMatched,
+                                 mergeA)
 import Data.MergeTactics        (WhenMissing(..),
+                                 SimpleWhenMissing,
                                  runWhenMissing,
-                                 missingKey,
-                                 WhenMatched(..))
+                                 WhenMatched(..),
+                                 SimpleWhenMatched,
+                                 missingKey)
 
 
 -- | The general combining function for `Map`.
@@ -45,3 +50,18 @@ mergeA
           !l1l2 = go l1 l2
           !r1r2 = go r1 r2
 {-# INLINE mergeA #-}
+
+-- | A simpler map merge
+merge
+  :: (Ord k)
+  => SimpleWhenMissing k a c -- ^ What to do with keys in @m1@ but not @m2@
+  -> SimpleWhenMissing k b c -- ^ What to do with keys in @m2@ but not @m1@
+  -> SimpleWhenMatched k a b c -- ^ What to do with keys in both @m1@ and @m2@
+  -> Map k a -- ^ Map @m1@
+  -> Map k b -- ^ Map @m2@
+  -> Map k c
+merge onL onR onB m1 m2 = let
+  f = mergeA onL onR onB
+  in runIdentity $ f m1 m2
+
+{-# INLINE merge #-}
