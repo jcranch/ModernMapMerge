@@ -1,3 +1,7 @@
+## 0.3.0.0 - 2024-10-27
+
+* Adding merges Set->Set->Set, Map->Set->Set and Set->Map->Map
+
 ## 0.2.0.0 - 2023-10-22
 
 * Dealing with liftA2 (using C preprocessor to maintain backwards compatibility)

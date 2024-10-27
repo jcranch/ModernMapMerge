@@ -1,5 +1,5 @@
 name:               modernmapmerge
-version:            0.2.0.0
+version:            0.3.0.0
 license:            BSD3
 author:             "James Cranch"
 maintainer:         "j.d.cranch@sheffield.ac.uk"
@@ -77,6 +77,23 @@ internal-libraries:
       - -fno-warn-orphans
 
 tests:
+  test-modernmapmerge:
+    main:                Spec.hs
+    source-dirs:         test-modernmapmerge
+    ghc-options:
+    - -Wall
+    - -Wcompat
+    - -Wincomplete-record-updates
+    - -Wincomplete-uni-patterns
+    - -Wredundant-constraints
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - hspec                          >= 2.11     && < 2.12
+    - modernmapmerge
+    build-tools:
+    - hspec-discover:hspec-discover  >= 2.11     && < 2.12
   test-maplike:
     main:                Spec.hs
     source-dirs:         test-maplike
@@ -93,5 +110,5 @@ tests:
     - hspec                          >= 2.11     && < 2.12
     - maplike
     - modernmapmerge
-    build-tool-depends:
+    build-tools:
     - hspec-discover:hspec-discover  >= 2.11     && < 2.12

@@ -21,6 +21,8 @@ library
       Data.Map.Merge
       Data.MergeTactics
       Data.MergeTactics.Reindex
+      Data.Set.Merge
+      Data.Set.Merge.Internal
   other-modules:
       Paths_modernmapmerge
   autogen-modules:
@@ -167,5 +169,26 @@ test-suite test-maplike
     , hspec ==2.11.*
     , indexed-traversable >=0.1.2 && <0.2
     , maplike
+    , modernmapmerge
+  default-language: Haskell2010
+
+test-suite test-modernmapmerge
+  type: exitcode-stdio-1.0
+  main-is: Spec.hs
+  other-modules:
+      Data.Set.MergeSpec
+      Paths_modernmapmerge
+  autogen-modules:
+      Paths_modernmapmerge
+  hs-source-dirs:
+      test-modernmapmerge
+  ghc-options: -Wall -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints -Werror -Wwarn=missing-home-modules -O2 -Wall -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
+  build-tool-depends:
+      hspec-discover:hspec-discover ==2.11.*
+  build-depends:
+      base >=4.15 && <4.20
+    , containers >=0.6.4.1 && <0.7
+    , hspec ==2.11.*
+    , indexed-traversable >=0.1.2 && <0.2
     , modernmapmerge
   default-language: Haskell2010
