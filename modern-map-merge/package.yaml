@@ -25,7 +25,7 @@ ghc-options:
 library:
   source-dirs:      src-modernmapmerge
   dependencies:
-    - witherable                      >= 0.4.2    && < 0.5
+    - witherable                      >= 0.5      && < 0.6
 
 internal-libraries:
 
@@ -33,21 +33,21 @@ internal-libraries:
     source-dirs:    src-listmap
     dependencies:
       - modernmapmerge
-      - witherable                    >= 0.4.2    && < 0.5
+      - witherable                    >= 0.5      && < 0.6
 
   maplike:
     source-dirs:    src-maplike
     dependencies:
       - modernmapmerge
-      - witherable                    >= 0.4.2    && < 0.5
+      - witherable                    >= 0.5      && < 0.6
 
   radix-tree-merge:
     source-dirs:    src-radix-tree-merge
     dependencies:
       - maplike
       - modernmapmerge
-      - radix-tree                    >= 1.0.0.0  && < 1.1
-      - witherable                    >= 0.4.2    && < 0.5
+      - radix-tree                    >= 1.0.0.0  && < 1.2
+      - witherable                    >= 0.5      && < 0.6
     ghc-options:
       - -fno-warn-orphans
 
@@ -58,7 +58,7 @@ internal-libraries:
       - modernmapmerge
       - pqueue                        >= 1.5.0    && < 1.7
       - vector                        >= 0.13     && < 0.14
-      - witherable                    >= 0.4.2    && < 0.5
+      - witherable                    >= 0.5      && < 0.6
 
   extra:
     source-dirs:    src-extra
@@ -72,7 +72,7 @@ internal-libraries:
       - transformers                  >= 0.5.6.2  && < 0.7
       - unordered-containers          >= 0.2.16   && < 0.3
       - vector                        >= 0.12.3.1 && < 0.14
-      - witherable                    >= 0.4.2    && < 0.5
+      - witherable                    >= 0.5      && < 0.6
     ghc-options:
       - -fno-warn-orphans
 

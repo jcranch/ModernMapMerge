@@ -1,11 +1,11 @@
 cabal-version: 2.0
 
--- This file has been generated from package.yaml by hpack version 0.36.0.
+-- This file has been generated from package.yaml by hpack version 0.37.0.
 --
 -- see: https://github.com/sol/hpack
 
 name:           modernmapmerge
-version:        0.2.0.0
+version:        0.3.0.0
 synopsis:       Improved merges in Haskell
 category:       Data structures
 author:         James Cranch
@@ -34,7 +34,7 @@ library
       base >=4.15 && <4.20
     , containers >=0.6.4.1 && <0.7
     , indexed-traversable >=0.1.2 && <0.2
-    , witherable >=0.4.2 && <0.5
+    , witherable ==0.5.*
   default-language: Haskell2010
 
 library extra
@@ -60,7 +60,7 @@ library extra
     , transformers >=0.5.6.2 && <0.7
     , unordered-containers >=0.2.16 && <0.3
     , vector >=0.12.3.1 && <0.14
-    , witherable >=0.4.2 && <0.5
+    , witherable ==0.5.*
   default-language: Haskell2010
 
 library listmap
@@ -78,7 +78,7 @@ library listmap
     , containers >=0.6.4.1 && <0.7
     , indexed-traversable >=0.1.2 && <0.2
     , modernmapmerge
-    , witherable >=0.4.2 && <0.5
+    , witherable ==0.5.*
   default-language: Haskell2010
 
 library maplike
@@ -102,7 +102,7 @@ library maplike
     , containers >=0.6.4.1 && <0.7
     , indexed-traversable >=0.1.2 && <0.2
     , modernmapmerge
-    , witherable >=0.4.2 && <0.5
+    , witherable ==0.5.*
   default-language: Haskell2010
 
 library radix-tree-merge
@@ -121,8 +121,8 @@ library radix-tree-merge
     , indexed-traversable >=0.1.2 && <0.2
     , maplike
     , modernmapmerge
-    , radix-tree >=1.0.0.0 && <1.1
-    , witherable >=0.4.2 && <0.5
+    , radix-tree >=1.0.0.0 && <1.2
+    , witherable ==0.5.*
   default-language: Haskell2010
 
 library spacetrees
@@ -147,7 +147,7 @@ library spacetrees
     , modernmapmerge
     , pqueue >=1.5.0 && <1.7
     , vector ==0.13.*
-    , witherable >=0.4.2 && <0.5
+    , witherable ==0.5.*
   default-language: Haskell2010
 
 test-suite test-maplike

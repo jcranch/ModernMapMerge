@@ -29,7 +29,7 @@ import Data.MergeTactics.Reindex
 -- | A tactic for dealing with keys present in one map but not the
 -- other in merge algorithms.
 newtype WhenMissing f i x y = WhenMissing {
-  runWhenMissing :: forall n. (FilterableWithIndex i n, WitherableWithIndex i n) => n x -> f (n y)
+  runWhenMissing :: forall n. (WitherableWithIndex i n) => n x -> f (n y)
 }
 
 -- | Run a WhenMissing tactic on a single key
@@ -65,7 +65,7 @@ instance (Monad f)
 type SimpleWhenMissing = WhenMissing Identity
 
 -- | A variant of `runWhenMissing` specialised to @f = Identity@.
-runSimpleWhenMissing :: (FilterableWithIndex i n, WitherableWithIndex i n) => SimpleWhenMissing i x y -> n x -> n y
+runSimpleWhenMissing :: (WitherableWithIndex i n) => SimpleWhenMissing i x y -> n x -> n y
 runSimpleWhenMissing w = runIdentity . runWhenMissing w
 
 -- | A variant of `missingKey` specialised to @f = Identity@.
