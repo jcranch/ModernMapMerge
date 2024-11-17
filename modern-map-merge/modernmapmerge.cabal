@@ -39,7 +39,10 @@ library
 
 library extra
   exposed-modules:
+      Data.FilterableS
       Data.Functor.Extra
+      Data.TraversableS
+      Data.WitherableS
   other-modules:
       Paths_modernmapmerge
   autogen-modules:
