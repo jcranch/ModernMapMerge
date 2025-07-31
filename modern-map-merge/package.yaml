@@ -8,8 +8,8 @@ synopsis:           Improved merges in Haskell
 category:           Data structures
 
 dependencies:
-  - base                        >= 4.15         && < 4.20
-  - containers                  >= 0.6.4.1      && < 0.7
+  - base                        >= 4.15         && < 4.22
+  - containers                  >= 0.6.4.1      && < 0.8
   - indexed-traversable         >= 0.1.2        && < 0.2
 
 ghc-options:
@@ -66,8 +66,8 @@ internal-libraries:
       - modernmapmerge
       - array                         >= 0.5.4.0  && < 0.6
       - bytestring                    >= 0.11.3   && < 0.13
-      - data-default                  >= 0.7.1.1  && < 0.8
-      - hashable                      >= 1.3.5    && < 1.5
+      - data-default                  >= 0.7.1.1  && < 0.9
+      - hashable                      >= 1.3.5    && < 1.6
       - indexed-traversable-instances >= 0.1.1    && < 0.2
       - transformers                  >= 0.5.6.2  && < 0.7
       - unordered-containers          >= 0.2.16   && < 0.3
@@ -93,7 +93,7 @@ tests:
     - hspec                          >= 2.11     && < 2.12
     - modernmapmerge
     build-tools:
-    - hspec-discover:hspec-discover  >= 2.11     && < 2.12
+    - hspec-discover:hspec-discover
   test-maplike:
     main:                Spec.hs
     source-dirs:         test-maplike
@@ -111,4 +111,4 @@ tests:
     - maplike
     - modernmapmerge
     build-tools:
-    - hspec-discover:hspec-discover  >= 2.11     && < 2.12
+    - hspec-discover:hspec-discover

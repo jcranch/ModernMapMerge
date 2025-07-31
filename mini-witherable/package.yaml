@@ -7,8 +7,8 @@ synopsis:           Filtering with effects
 category:           Data structures
 
 dependencies:
-  - base                        >= 4.15         && < 4.20
-  - containers                  >= 0.6.4.1      && < 0.7
+  - base                        >= 4.15         && < 4.22
+  - containers                  >= 0.6.4.1      && < 0.8
   - indexed-traversable         >= 0.1.2        && < 0.2
 
 ghc-options:
