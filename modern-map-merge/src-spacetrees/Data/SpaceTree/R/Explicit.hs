@@ -9,7 +9,7 @@
 -- https://en.wikipedia.org/wiki/R-tree
 module Data.SpaceTree.R.Explicit where
 
-import Data.Maplike
+import Data.Classified
 import Data.SpaceTree.Coords
 import Data.SpaceTree.Explicit
 

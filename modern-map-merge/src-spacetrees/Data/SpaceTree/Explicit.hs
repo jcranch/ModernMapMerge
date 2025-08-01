@@ -28,6 +28,7 @@ import Data.Vector (Vector)
 import qualified Data.Vector as V
 import Witherable
 
+import Data.Classified
 import Data.Maplike
 
 import Data.MergeTactics

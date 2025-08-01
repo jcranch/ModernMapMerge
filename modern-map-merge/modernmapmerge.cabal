@@ -86,12 +86,14 @@ library listmap
 
 library maplike
   exposed-modules:
+      Data.Classified
       Data.IntMap.Extra
       Data.Lonely
       Data.Map.Extra
       Data.Maplike
       Data.Maplike.Branching
       Data.Maplike.Prefix
+      Data.Maplike.Weighted
       Data.Setlike
   other-modules:
       Paths_modernmapmerge
@@ -103,6 +105,7 @@ library maplike
   build-depends:
       base >=4.15 && <4.22
     , containers >=0.6.4.1 && <0.8
+    , groups ==0.5.*
     , indexed-traversable >=0.1.2 && <0.2
     , modernmapmerge
     , witherable ==0.5.*

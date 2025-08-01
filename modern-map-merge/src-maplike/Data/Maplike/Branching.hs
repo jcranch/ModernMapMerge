@@ -26,6 +26,7 @@ import Witherable
 
 import Data.MergeTactics
 
+import Data.Classified
 import Data.Maplike
 
 

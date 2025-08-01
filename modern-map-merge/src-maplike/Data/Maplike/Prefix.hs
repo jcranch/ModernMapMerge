@@ -28,6 +28,7 @@ import Data.MergeTactics (WhenMissing(..),
                           traverseMaybeMissing)
 
 import Data.Maplike
+import Data.Classified
 
 
 data PrefixMap m v = PrefixMap {

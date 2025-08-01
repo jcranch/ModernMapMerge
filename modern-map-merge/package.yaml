@@ -38,6 +38,7 @@ internal-libraries:
   maplike:
     source-dirs:    src-maplike
     dependencies:
+      - groups                        >= 0.5      && < 0.6
       - modernmapmerge
       - witherable                    >= 0.5      && < 0.6
 
